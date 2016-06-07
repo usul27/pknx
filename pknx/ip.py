@@ -57,7 +57,10 @@ class KNXIPFrame():
         self.service_type_id = service_type_id
     
     def to_frame(self):
-        return self.header()+self.body
+        if sys.version_info[0] < 3:
+            return bytes_to_str(self.header()+self.body)
+        else:
+            return bytearray(self.header()+self.body)
     
     @classmethod
     def from_frame(cls, frame):
@@ -203,9 +206,7 @@ class CEMIMessage():
     
     
 class KNXIPTunnel():
-    
-    # TODO: implement a control server
-    #    control_server = None
+
     data_server = None
     control_socket = None
     channel = 0
@@ -213,6 +214,7 @@ class KNXIPTunnel():
     valueCache = None
     data_handler = None
     result_queue = None
+    notify = None
     
     def __init__(self, ip, port, valueCache=None):
         self.remote_ip = ip
@@ -265,21 +267,28 @@ class KNXIPTunnel():
         # 
         p.extend([0x04,0x04,0x02,0x00])
         
-        self.control_socket.sendto("".join(map(chr, p)), (self.remote_ip, self.remote_port))
+        self.control_socket.sendto(bytes(p),
+                                   (self.remote_ip, self.remote_port))
         
         #TODO: non-blocking receive
         received = self.control_socket.recv(1024)
+        if sys.version_info[0] < 3:
+            received = map(ord,received)
         
         # Check if the response is an TUNNELING ACK
-        r_sid = ord(received[2])*256+ord(received[3])
+        r_sid = received[2]*256+received[3]
+        
         if r_sid == KNXIPFrame.CONNECT_RESPONSE:
-            self.channel = ord(received[6])
+            self.channel = received[6]
             logging.debug("Connected KNX IP tunnel (Channel: {})".format(self.channel,self.seq))
             # TODO: parse the other parts of the response
         else:
             raise KNXException("Could not initiate tunnel connection, STI = {0:x}".format(r_sid))
         
     def send_tunnelling_request(self, cemi):
+        if self.data_server == None:
+            raise KNXException("KNX tunnel not connected")
+        
         f = KNXIPFrame(KNXIPFrame.TUNNELING_REQUEST)
         b = [0x04,self.channel,self.seq,0x00] # Connection header see KNXnet/IP 4.4.6 TUNNELLING_REQUEST
         if (self.seq < 0xff):
@@ -288,7 +297,8 @@ class KNXIPTunnel():
             self.seq = 0
         b.extend(cemi.to_body())
         f.body=b
-        self.data_server.socket.sendto(bytes_to_str(f.to_frame()), (self.remote_ip, self.remote_port))
+        self.data_server.socket.sendto(f.to_frame(),(self.remote_ip, self.remote_port))
+
         # TODO: wait for ack
         
         
@@ -327,12 +337,23 @@ class KNXIPTunnel():
             problem="Can't toggle group address {} as value is {}".format(addr,d[0])
             logging.error(problem)
             raise KNXException(problem)
-            
-    
+
+
+    def received_message(self, address, data):
+        self.valueCache.set(address,data)
+        if self.notify:
+            self.notify(address, data)
+
+
+
 class DataRequestHandler(SocketServer.BaseRequestHandler):
     
     def handle(self):
-        data = str_to_bytes(self.request[0])
+        if is_py2:
+            data = str_to_bytes(self.request[0])
+        else:
+            data = self.request[0]
+        
         socket = self.request[1]
         
         f = KNXIPFrame.from_frame(data)
@@ -356,13 +377,11 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
                 logging.error(problem)
                 raise KNXException(problem)
             
-            logging.debug("Received KNX message {}".format(msg))
-            
             # Cache data
             if (msg.cmd == CEMIMessage.CMD_GROUP_WRITE) or (msg.cmd == CEMIMessage.CMD_GROUP_RESPONSE):
                     # saw a value for a group address on the bus
-                tunnel.valueCache.set(msg.dst_addr,msg.data)
-                    
+                tunnel.received_message(msg.dst_addr, msg.data)
+            
             # Put RESPONSES into the result queue
             if (msg.cmd == CEMIMessage.CMD_GROUP_RESPONSE):
                 tunnel.result_queue.put(msg.data)
@@ -371,8 +390,8 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
                 bodyack = [0x04, req.channel, req.seq, KNXIPFrame.E_NO_ERROR]
                 ack = KNXIPFrame(KNXIPFrame.TUNNELLING_ACK)
                 ack.body = bodyack
-                socket.sendto(bytes_to_str(ack.to_frame()), self.client_address)
-        
+                socket.sendto(ack.to_frame(), self.client_address)
+
  
 class DataServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
     pass
