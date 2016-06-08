@@ -7,5 +7,5 @@ setup(name='knxip',
       author='Daniel Matuschek',
       author_email='daniel@hifiberry.com',
       license='MIT',
-      packages=['pknx'],
+      packages=['knxip'],
       zip_safe=False)
