@@ -1,6 +1,6 @@
 from setuptools import setup
 
-setup(name='pknx',
+setup(name='knxip',
       version='0.2',
       description='A native Python KNX/IPNet implementation',
       url='http://github.com/usul27/pknx',
