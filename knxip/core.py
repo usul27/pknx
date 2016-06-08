@@ -1,4 +1,29 @@
 from knxip.helper import *
+import re
+
+def parse_group_address(addr):
+    res = None
+    
+    if re.match('[0-9]+$', addr):
+        res=int(addr)
+    
+    m = re.match("([0-9]+)/([0-9]+)$", addr)
+    if m:
+        main = m.group(1)
+        sub = m.group(2)
+        res=int(main)*256+int(sub)
+
+    m = re.match("([0-9]+)/([0-9]+)/([0-9]+)$", addr)
+    if m:
+        main = m.group(1)
+        middle = m.group(2)
+        sub = m.group(3)
+        res = int(main)*256*8+int(middle)*256+int(sub)
+
+    if res==None:
+        raise KNXException("Address {} does not match any address scheme".format(addr))
+
+    return res
 
 class ValueCache():
     
