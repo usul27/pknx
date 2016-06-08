@@ -1,4 +1,4 @@
-from pknx.helper import *
+from knxip.helper import *
 
 class ValueCache():
     

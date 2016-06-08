@@ -3,8 +3,8 @@ import threading
 import sys
 import logging
 
-from pknx.core import KNXException, ValueCache
-from pknx.helper import *
+from knxip.core import KNXException, ValueCache
+from knxip.helper import *
 
 is_py2 = sys.version[0] == '2'
 if is_py2:
@@ -13,6 +13,7 @@ if is_py2:
 else:
     import queue as queue
     import socketserver as SocketServer
+
 
 class KNXIPFrame():
     
@@ -80,7 +81,8 @@ class KNXIPFrame():
         res[4] = (tl >> 8) & 0xff
         res[5] = (tl >> 0) & 0xff
         return res
-    
+
+
 class KNXTunnelingRequest:
     
     seq = 0
@@ -101,6 +103,7 @@ class KNXTunnelingRequest:
     
     def __str__(self):
         return ""
+
 
 class CEMIMessage():
     
@@ -164,7 +167,7 @@ class CEMIMessage():
         return m
     
     def init_group(self,dst_addr=1):
-        self.code = 0x11 # Comes from packet dump, why?
+        self.code = 0x11
         self.ctl1 = 0xbc # frametype 1, repeat 1, system broadcast 1, priority 3, ack-req 0, confirm-flag 0
         self.ctl2 = 0xe0 # dst addr type 1, hop count 6, extended frame format
         self.src_addr = 0
@@ -298,9 +301,7 @@ class KNXIPTunnel():
         b.extend(cemi.to_body())
         f.body=b
         self.data_server.socket.sendto(f.to_frame(),(self.remote_ip, self.remote_port))
-
         # TODO: wait for ack
-        
         
     def group_read(self, addr, use_cache=True):
         if use_cache:
@@ -338,12 +339,10 @@ class KNXIPTunnel():
             logging.error(problem)
             raise KNXException(problem)
 
-
     def received_message(self, address, data):
         self.valueCache.set(address,data)
         if self.notify:
             self.notify(address, data)
-
 
 
 class DataRequestHandler(SocketServer.BaseRequestHandler):
