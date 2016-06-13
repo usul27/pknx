@@ -339,7 +339,7 @@ class KNXIPTunnel():
             f.to_frame(), (self.remote_ip, self.remote_port))
         # TODO: wait for ack
 
-    def group_read(self, addr, use_cache=True):
+    def group_read(self, addr, use_cache=True, timeout=2):
         """Send a group read to the KNX bus and return the result."""
         if use_cache:
             res = self.valueCache.get(addr)
@@ -351,9 +351,16 @@ class KNXIPTunnel():
 
         cemi = CEMIMessage()
         cemi.init_group_read(addr)
+        # There might be old messages in the result quue, remove them
+        self.result_queue.queue.clear()
         self.send_tunnelling_request(cemi)
         # Wait for the result
-        res = self.result_queue.get()
+        try:
+            res = self.result_queue.get(block=True, timeout=timeout)
+        except queue.Empty:
+            # TODO: cleanup
+            return None
+
         self.result_queue.task_done()
         return res
 
