@@ -310,10 +310,17 @@ class KNXIPTunnel():
 
         if r_sid == KNXIPFrame.CONNECT_RESPONSE:
             self.channel = received[6]
-            logging.debug(
-                "Connected KNX IP tunnel (Channel: {})".format(
-                    self.channel, self.seq))
-            # TODO: parse the other parts of the response
+            status = received[7]
+            if (status == 0):
+                logging.debug("Connected KNX IP tunnel " +
+                              "(Channel: {})".format(self.channel))
+            else:
+                logging.debug("KNX IP tunnel connect error:" +
+                              "(Channel: {}, Status: {})".format(
+                                self.channel, status))
+                raise KNXException("Could not initiate tunnel connection " +
+                                   "status={}", status)
+
         else:
             raise KNXException(
                 "Could not initiate tunnel connection, STI = {0:x}".format(r_sid))
