@@ -5,7 +5,7 @@ import threading
 import sys
 import logging
 
-from knxip.core import KNXException, ValueCache
+from knxip.core import KNXException, ValueCache, E_NO_ERROR
 from knxip.helper import *
 
 is_py2 = sys.version[0] == '2'
@@ -42,18 +42,6 @@ class KNXIPFrame():
     REMLOG_CONNECTION = 0x06
     REMCONF_CONNECTION = 0x07
     OBJSVR_CONNECTION = 0x08
-
-    E_NO_ERROR = 0x00
-    E_HOST_PROTOCOL_TYPE = 0x01
-    E_VERSION_NOT_SUPPORTED = 0x02
-    E_SEQUENCE_NUMBER = 0x04
-    E_CONNECTION_ID = 0x21
-    E_CONNECTION_TYPE = 0x22
-    E_CONNECTION_OPTION = 0x23
-    E_NO_MORE_CONNECTIONS = 0x24
-    E_DATA_CONNECTION = 0x26
-    E_KNX_CONNECTION = 0x27
-    E_TUNNELING_LAYER = 0x28
 
     body = None
 
@@ -236,7 +224,7 @@ class KNXIPTunnel():
 
     data_server = None
     control_socket = None
-    channel = 0
+    channel = None
     seq = 0
     valueCache = None
     data_handler = None
@@ -255,6 +243,10 @@ class KNXIPTunnel():
             self.valueCache = ValueCache()
         else:
             self.valueCache = ValueCache
+
+    def __del__(self):
+        """Make sure an open tunnel connection will be closed"""
+        self.disconnect()
 
     def connect(self):
         """Connect to the KNX/IP tunnelling interface."""
@@ -312,18 +304,37 @@ class KNXIPTunnel():
             self.channel = received[6]
             status = received[7]
             if (status == 0):
+                self.hpai = received[8:10]
                 logging.debug("Connected KNX IP tunnel " +
-                              "(Channel: {})".format(self.channel))
+                              "(Channel: {}, HPAI: {} {})".format(
+                                self.channel, self.hpai[0], self.hpai[1]))
             else:
                 logging.debug("KNX IP tunnel connect error:" +
                               "(Channel: {}, Status: {})".format(
                                 self.channel, status))
                 raise KNXException("Could not initiate tunnel connection " +
-                                   "status={}", status)
+                                   "status={}".format(status), status)
 
         else:
             raise KNXException(
                 "Could not initiate tunnel connection, STI = {0:x}".format(r_sid))
+
+    def disconnect(self):
+        """Disconnect an open tunnel connection"""
+        if self.channel:
+            logging.debug("Disconnecting KNX/IP tunnel...")
+            f = KNXIPFrame(KNXIPFrame.DISCONNECT_REQUEST)
+            b = [self.channel, 0x00]
+            b.extend(self.hpai)
+            if (self.seq < 0xff):
+                self.seq += 1
+            else:
+                self.seq = 0
+            f.body = b
+            self.data_server.socket.sendto(f.to_frame(),
+                                           (self.remote_ip, self.remote_port))
+        else:
+            logging.debug("Disconnect - no connection, nothing to do")
 
     def send_tunnelling_request(self, cemi):
         """Send a tunneling request based on the given CEMI data.
@@ -454,10 +465,19 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
                 tunnel.result_queue.put(msg.data)
 
             if send_ack:
-                bodyack = [0x04, req.channel, req.seq, KNXIPFrame.E_NO_ERROR]
+                bodyack = [0x04, req.channel, req.seq, E_NO_ERROR]
                 ack = KNXIPFrame(KNXIPFrame.TUNNELLING_ACK)
                 ack.body = bodyack
                 socket.sendto(ack.to_frame(), self.client_address)
+
+        elif f.service_type_id == KNXIPFrame.TUNNELLING_ACK:
+            logging.debug("Received tunneling ACK")
+        elif f.service_type_id == KNXIPFrame.DISCONNECT_RESPONSE:
+            logging.debug("Disconnected")
+            self.channel = None
+        else:
+            logging.info("Message type {} not yet implemented".format(
+                         f.service_type_id))
 
 
 class DataServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):

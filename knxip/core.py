@@ -5,6 +5,18 @@ This implements some core KNX classes and methods.
 import re
 from knxip.helper import tohex
 
+E_NO_ERROR = 0x00
+E_HOST_PROTOCOL_TYPE = 0x01
+E_VERSION_NOT_SUPPORTED = 0x02
+E_SEQUENCE_NUMBER = 0x04
+E_CONNECTION_ID = 0x21
+E_CONNECTION_TYPE = 0x22
+E_CONNECTION_OPTION = 0x23
+E_NO_MORE_CONNECTIONS = 0x24
+E_DATA_CONNECTION = 0x26
+E_KNX_CONNECTION = 0x27
+E_TUNNELING_LAYER = 0x28
+
 
 def parse_group_address(addr):
     """Parse KNX group addresses and return the address as an integer.
@@ -58,14 +70,34 @@ class ValueCache():
 
 class KNXException(Exception):
 
-    def __init__(self, message):
+    errorcode = 0
+
+    def __init__(self, message, errorcode=0):
         super(KNXException, self).__init__(message)
+        self.errorcode = errorcode
+
+    def __str__(self):
+        msg = {
+            E_NO_ERROR: "no error",
+            E_HOST_PROTOCOL_TYPE: "protocol type error",
+            E_VERSION_NOT_SUPPORTED: "version not supported",
+            E_SEQUENCE_NUMBER: "invalid sequence number",
+            E_CONNECTION_ID: "invalid connection id",
+            E_CONNECTION_TYPE: "invalid connection type",
+            E_CONNECTION_OPTION: "invalid connection option",
+            E_NO_MORE_CONNECTIONS: "no more connection possible",
+            E_DATA_CONNECTION: "data connection error",
+            E_KNX_CONNECTION: "KNX connection error",
+            E_TUNNELING_LAYER: "tunneling layer error",
+        }
+
+        return super().__str__() + msg.get(self.errorcode, "unknown error code")
 
 
 class KNXMessage(object):
 
     repeat = 0
-    priority = 3 # (0 = system, 1 - alarm, 2 - high, 3 - normal)
+    priority = 3   # (0 = system, 1 - alarm, 2 - high, 3 - normal)
     src_addr = 0
     dst_addr = 0
     dt = 0
@@ -137,5 +169,3 @@ class KNXMessage(object):
             raise KNXException('Frame {} has not the correct length'.format(tohex(frame)))
 
         return m
-
-        
