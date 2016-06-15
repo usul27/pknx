@@ -91,7 +91,8 @@ class KNXException(Exception):
             E_TUNNELING_LAYER: "tunneling layer error",
         }
 
-        return super().__str__() + msg.get(self.errorcode, "unknown error code")
+        return super().__str__() + " "+msg.get(self.errorcode,
+                                               "unknown error code")
 
 
 class KNXMessage(object):
