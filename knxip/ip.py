@@ -265,6 +265,7 @@ class KNXIPTunnel():
                 target=self.data_server.serve_forever)
             data_server_thread.daemon = True
             data_server_thread.start()
+            logging.debug("Started data server on UDP port {}".format(self.data_port))
 
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind((local_ip, 0))
