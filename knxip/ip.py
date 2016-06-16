@@ -476,6 +476,9 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
         elif f.service_type_id == KNXIPFrame.DISCONNECT_RESPONSE:
             logging.debug("Disconnected")
             self.channel = None
+            tunnel = self.server.tunnel
+            tunnel.data_server.shutdown()
+            tunnel.data_server = None
         else:
             logging.info("Message type {} not yet implemented".format(
                          f.service_type_id))
