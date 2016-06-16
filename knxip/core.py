@@ -49,7 +49,36 @@ def parse_group_address(addr):
     return res
 
 
-class ValueCache():
+class KNXData(object):
+    """Helper class for KNX data format conversions"""
+    
+    def float_to_knx(f):
+        """Convert a float to a 2 byte KNX float value"""
+    
+        if f< -671088.64 or f > 670760.96:
+            raise KNXException("float {} out of valid range".format(f))
+        
+        f=f*100
+
+        for e in range(0,15):
+            exp = pow(2,e)
+            if ((f/exp) >= -2048) and ((f/exp) < 2047):
+                break
+    
+        if f<0:
+            s=1
+            m=int(2048+(f/exp))
+        else:
+            s=0
+            m=int(f/exp)
+        
+
+        return [(s << 7) + ( e << 3) + (m >> 8),
+                m & 0xff]
+
+
+class ValueCache(object):
+    """A simple caching class based on dictionaries"""
 
     values = {}
 
@@ -68,15 +97,19 @@ class ValueCache():
             return False
 
 
+
 class KNXException(Exception):
+    """Exception when handling KNX functionalities"""
 
     errorcode = 0
 
     def __init__(self, message, errorcode=0):
+        """Initialize exception with the given error message and error code"""
         super(KNXException, self).__init__(message)
         self.errorcode = errorcode
 
     def __str__(self):
+        """Return a human-readable representation of the exception"""
         msg = {
             E_NO_ERROR: "no error",
             E_HOST_PROTOCOL_TYPE: "protocol type error",
