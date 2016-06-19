@@ -3,8 +3,23 @@ import ctypes
 import struct
 from enum import IntEnum
 
-KNXIP_PROTOCOL_VERSION = 0x1  # Define the Protocol Version for all Factory Classes
+"""Define the Protocol Version for all Factory Classes"""
 
+KNXIP_PROTOCOL_VERSION = 0x1
+
+
+
+KNXIP_CONNECTION_REQUEST_TIMOUT = 10
+"""KNXNet/IP Client shall wait for 10 seconds for a CONNECT_RESPONSE frame from KNXNet/IP Server"""
+
+KNXIP_CONNECTIONSTATE_REQUEST_TIMEOUT = 10
+"""KNXNet/IP Client shall wait for 10 seconds for a CONNECTIONSTATE_RESPONSE frame from KNXNet/IP Server."""
+
+KNXIP_DEVICE_CONFIGURATION_REQUEST_TIMEOUT = 10
+"""KNXNet/IP Client shall wait for 10 seconds for a DEVICE_CONFIGURATION_RESPONSE frame from KNXNet/IP Server."""
+
+TUNNELING_REQUEST_TIMEOUT = 1
+"""KNXNet/IP Client shall wait for 1 second for a TUNNELING_ACK response on a TUNNELING_REQUEST frame from KNXnet/IP Server."""
 
 """
     TODO:
@@ -229,8 +244,47 @@ class DeviceConfigurationAckCode(IntEnum):
             raise ValueError("Invalid DeviceConfigurationAckCode")
 
 
+class DescriptionTypeCode(IntEnum):
+    """Represent the Description Information Type Code defined in KNX Standard v2.1 3.8.2 - 7.5.4.1"""
+
+    DEVICE_INFO = 0x01
+    """Device information e.g. KNX medium."""
+
+    SUPP_SVC_FAMILIES = 0x02
+    """Service families supported by the device"""
+
+    IP_CONFIG = 0x03
+    """IP configuration"""
+
+    IP_CUR_CONFIG = 0x04
+    """current configuration"""
+
+    KNX_ADDRESS = 0x05
+    """KNX Addresses"""
+
+    #0x06 to 0xFD reserverd for Future use
+
+    MFR_DATA = 0xFE
+    """DIB structure for further data defined by device manufacturer."""
+
+    def __str__(self):
+        """Return the Description Type Code Text"""
+        if self.value == DescriptionTypeCode.DEVICE_INFO:
+            return "Device information e.g. KNX medium."
+        elif self.value == DescriptionTypeCode.SUPP_SVC_FAMILIES:
+            return "Service families supported by the device"
+        elif self.value == DescriptionTypeCode.IP_CONFIG:
+            return "IP configuration"
+        elif self.value == DescriptionTypeCode.IP_CUR_CONFIG:
+            return "current configuration"
+        elif self.value == DescriptionTypeCode.KNX_ADDRESS:
+            return "KNX Addresses"
+        else:
+            raise ValueError("Invalid DesciptionTypeCode")
+
+
 class DescriptionInformationBlockCode(IntEnum):
-    """Represent the Description Information Block (DIB) defined in KNX Standard v2.1 3.8.1- 5.6"""
+    """Represent the Description Information Block (DIB) defined in KNX Standard v2.1 3.8.1 - 5.6"""
 
     DEVICE_INFO = 0x01
     """Device information e.g. KNX medium."""
@@ -307,7 +361,7 @@ class HostProtocolAddressInformation():
     hpai_frame_default_size = 0x8
     """ Define Default Frame Size of a HPAI Frame"""
 
-    host_protocol_code = HostProtocolCodes.IPV4_UDP
+    host_protocol_code = HostProtocolCode.IPV4_UDP
     """ Protocol Code to Use for this HPAI"""
 
     def __init__(self,host,port,protocol):
@@ -356,10 +410,22 @@ class HostProtocolAddressInformation():
         return ipaddress.IPv4Address(self.host)
 
 
+class CommunicationChannelConnectionTypeHeader():
+    """The connection type specific header items are optional and of variable length depending on the type of the
+    connection."""
+
+
+
+
 class CommunicationChannelConnectionHeader():
+
+
+    length = 0 #the Total Length of the Connectionheader
     channel_id = 0
-    sequence_counter = 0
+    sequence_counter = 0 #Should be Increment by one for each Connection
     service_type_identifier = 0
+    connection_type_specified_header = None # is the Connection Request Information CRI ??????
+
 
     def add_to_sequence_counter(self):
         self.sequence_counter += 1
@@ -383,3 +449,4 @@ class KNXIPBodyBase():
 class KNXIPFrame():
     header = KNXIPHeaderBase
     body = KNXIPBodyBase
+
