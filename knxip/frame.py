@@ -214,6 +214,21 @@ class TunnelConnectionAckCode(IntEnum):
         else:
             raise ValueError("Invalid TunnelConnectionAckCode")
 
+
+class DeviceConfigurationAckCode(IntEnum):
+    """Represent a KNXNet/IP Tunnel Ack code defined in KNX Standard v2.1 3.8.1 - 5.5.5"""
+
+    E_NO_ERROR = 0x0
+    """The message is received successfully"""
+
+    def __str__(self):
+        """Return the DeviceConfigurationAckCode Text as string"""
+        if self.value == DeviceConfigurationAckCode.E_NO_ERROR:
+            return "The message is received successfully"
+        else:
+            raise ValueError("Invalid DeviceConfigurationAckCode")
+
+
 class HostProtocolCode(IntEnum):
     """
     Represent the 2 Possible Host Protocol Codes defined in KNX Standard v2.1 3.8.2 - 8.6.2
