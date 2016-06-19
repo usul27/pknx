@@ -51,10 +51,7 @@ class TextKNXIPHeader(unittest.TestCase):
         )
 
     def test_unpack(self):
-
-
-        y = KNXNetIPHeader(ServiceTypeIdentifier.TUNNELING_REQUEST);
-        x = KNXNetIPHeader.from_bytes(bytes(b'\x06\x01\x04\x20\x00\x06'))
+        """Test if To Binary and from Binary for for this Class"""
 
         x = bytes(b'\x06\x01\x04\x20\x00\x06')
         self.assertEqual(bytes(KNXNetIPHeader(ServiceTypeIdentifier.TUNNELING_REQUEST)),
