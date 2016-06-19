@@ -218,7 +218,7 @@ class TunnelConnectionAckCode(IntEnum):
 class DeviceConfigurationAckCode(IntEnum):
     """Represent a KNXNet/IP Tunnel Ack code defined in KNX Standard v2.1 3.8.1 - 5.5.5"""
 
-    E_NO_ERROR = 0x0
+    E_NO_ERROR = 0x00
     """The message is received successfully"""
 
     def __str__(self):
@@ -227,6 +227,34 @@ class DeviceConfigurationAckCode(IntEnum):
             return "The message is received successfully"
         else:
             raise ValueError("Invalid DeviceConfigurationAckCode")
+
+
+class DescriptionInformationBlockCode(IntEnum):
+    """Represent the Description Information Block (DIB) defined in KNX Standard v2.1 3.8.1- 5.6"""
+
+    DEVICE_INFO = 0x01
+    """Device information e.g. KNX medium."""
+
+    SUPP_SVC_FAMILIES = 0x02
+    """Service families supported by the device"""
+
+    # 0x03 to 0xFD are Reserved for future use
+
+    MFR_DATA = 0xFE
+    """DIB structure for further data defined by device manufacturer"""
+
+    # 0xFF is not Used!
+
+    def __str__(self):
+        """Return the Description Information Block Code Information Text"""
+        if self.value == DescriptionInformationBlockCode.DEVICE_INFO:
+            return "Device information e.g. KNX medium."
+        elif self.value == DescriptionInformationBlockCode.SUPP_SVC_FAMILIES:
+            return "Service families supported by the device"
+        elif self.value == DescriptionInformationBlockCode.MFR_DATA:
+            return "DIB structure for further data defined by device manufacturer"
+        else:
+            raise ValueError("Invalid Description Information Block Code(DIP)")
 
 
 class HostProtocolCode(IntEnum):
