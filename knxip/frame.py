@@ -257,6 +257,31 @@ class DescriptionInformationBlockCode(IntEnum):
             raise ValueError("Invalid Description Information Block Code(DIP)")
 
 
+class KNXMediumCodes(IntEnum):
+    """Represent the KNX Medium Codes defined in KNX Standard v2.1 3.8.1- 5.6
+
+    Info:
+    These values shall be identical to the encoding of DPT_Media as specified in [01];
+    exactly one single bit shall be set.
+    """
+
+    # 0x01 is reserved
+
+    KNX_TP = 0x02
+    """KNX TP"""
+
+    PL110 = 0x04
+    """KNX PL110"""
+
+    # 0x08 is reserved
+
+    RF = 0x10
+    """KNX RF"""
+
+    KNXIP = 0x20
+    """KNX IP"""
+
+
 class HostProtocolCode(IntEnum):
     """
     Represent the 2 Possible Host Protocol Codes defined in KNX Standard v2.1 3.8.2 - 8.6.2
