@@ -186,15 +186,33 @@ class ConnectionStateResponseCode(IntEnum):
         """Return the Connection State Response Code Text as string"""
         if self.value == ConnectionStateResponseCode.E_NO_ERROR:
             return "The connection state is normal"
-        if self.value == ConnectionStateResponseCode.E_CONNECTION_ID:
+        elif self.value == ConnectionStateResponseCode.E_CONNECTION_ID:
             return "The KNXNet/IP Server device cannot find an active data connection with the specified ID"
-        if self.value == ConnectionStateResponseCode.E_DATA_CONNECTION:
+        elif self.value == ConnectionStateResponseCode.E_DATA_CONNECTION:
             return "The KNXNet/IP Server device detects an error concerning the data connection with the specified ID"
-        if self.value == ConnectionStateResponseCode.E_KNX_CONNECTION:
+        elif self.value == ConnectionStateResponseCode.E_KNX_CONNECTION:
             return "The KNXNet/IP Server device detects an error concerning the KNX connection with the specified ID"
         else:
             raise ValueError("Invalid ConnectionStateResponseCode")
 
+
+class TunnelConnectionAckCode(IntEnum):
+    """Represent a KNXNet/IP Tunnel Ack code defined in KNX Standard v2.1 3.8.1 - 5.5.4"""
+
+    E_NO_ERROR = 0x0
+    """The message is received successfully"""
+
+    E_TUNNELING_LAYER = 0x29
+    """The KNXNet/IP Server device does not support the requested KNXNet/IP Tunnelling layer"""
+
+    def __str__(self):
+        """Return the Tunnel Connection ACK Error Code Text as string"""
+        if self.value == TunnelConnectionAckCode.E_NO_ERROR:
+            return "The message is received successfully"
+        elif self.value == TunnelConnectionAckCode.E_TUNNELING_LAYER:
+            return "The KNXNet/IP Server device does not support the requested KNXNet/IP Tunnelling layer"
+        else:
+            raise ValueError("Invalid TunnelConnectionAckCode")
 
 class HostProtocolCode(IntEnum):
     """
