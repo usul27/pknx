@@ -40,26 +40,76 @@ class TestTunnelConnectionRequestInformation(unittest.TestCase):
         x =KNXNetIPHeader(ServiceTypeIdentifier)
 
 
-class TextKNXIPHeader(unittest.TestCase):
+class TestKNXIPHeader(unittest.TestCase):
 
     def test_bytes(self):
         """Testing the .__bytes__"""
 
         self.assertEqual(
-            bytes( KNXNetIPHeader(ServiceTypeIdentifier.TUNNELING_REQUEST)),
+            bytes(KNXNetIPHeader(ServiceTypeIdentifier.TUNNELING_REQUEST)),
             bytes(b'\x06\x01\x04\x20\x00\x06')
         )
 
     def test_unpack(self):
         """Test if To Binary and from Binary for for this Class"""
 
-        x = bytes(b'\x06\x01\x04\x20\x00\x06')
         self.assertEqual(bytes(KNXNetIPHeader(ServiceTypeIdentifier.TUNNELING_REQUEST)),
                          bytes(KNXNetIPHeader.from_bytes(
                              bytes(b'\x06\x01\x04\x20\x00\x06')
                          )))
 
+class TestKNXConnectionheader(unittest.TestCase):
 
+    def test_bytes(self):
+        """Testing the .__bytes__"""
+        self.assertEqual(
+            bytes(KNXNetIPConnectionheader(5,20)),
+            bytes(b'\x04\x05\x14\x00')
+        )
+
+    def test_unpack(self):
+        """Test if to Binary and from Binary for this Class"""
+
+        self.assertEqual(
+            bytes(KNXNetIPConnectionheader(5, 20)),
+            bytes(KNXNetIPConnectionheader.from_bytes(bytes(b'\x04\x05\x14\x00')))
+        )
+
+class TestKNXNetIPBody(unittest.TestCase):
+
+    def test_bytes(self):
+        """Testing the .__bytes__"""
+
+        # Test Connection Headaer Only
+        self.assertEqual(
+            bytes(KNXNetIPBody(KNXNetIPConnectionheader(5, 20))),
+            bytes(b'\x04\x05\x14\x00')
+        )
+
+    def test_unpack(self):
+        self.assertEqual(
+            bytes(KNXNetIPBody(KNXNetIPConnectionheader(5,20))),
+            bytes(KNXNetIPBody.from_bytes(bytes(b'\x04\x05\x14\x00')))
+        )
+
+class TestKNXNetIPFrame(unittest.TestCase):
+
+    def test_bytes(self):
+        """Testing the .__bytes__"""
+
+        ## Tunnel Request
+        tunnelRequestBuild = KNXNetIPFrame(
+            KNXNetIPHeader(ServiceTypeIdentifier.TUNNELING_REQUEST),
+            KNXNetIPBody(
+                KNXNetIPConnectionheader(5,20)
+            )
+
+        )
+        tunnelRequestBuildBytes = bytes(tunnelRequestBuild)
+        tunnelRequestBytes = bytes(b'\x06\x10\x04\x20\x00\x0A\x04\x05\x14\x00')
+
+
+        self.assertEqual(tunnelRequestBuildBytes,tunnelRequestBytes)
 
 
 

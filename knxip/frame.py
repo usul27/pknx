@@ -1,12 +1,10 @@
 import ipaddress
-import ctypes
 import struct
 from enum import IntEnum
-from enum import Enum
 
 """Define the Protocol Version for all Factory Classes"""
 
-KNXIP_PROTOCOL_VERSION = 0x01 # Fixed KNX IP Protocol Version in KNXIP V2.1 03.08.01 5.2
+KNXIP_PROTOCOL_VERSION = 0x10 # Fixed KNX IP Protocol Version in KNXIP V2.1 03.08.01 5.2
 KNXIP_HEADER_SIZE = 0x06 # Fixed KNX IP Header defined in KNXIP V2.1 03.08.01 5.2
 
 KNXIP_CONNECTION_REQUEST_TIMOUT = 10
@@ -19,14 +17,8 @@ KNXIP_DEVICE_CONFIGURATION_REQUEST_TIMEOUT = 10
 """KNXNet/IP Client shall wait for 10 seconds for a DEVICE_CONFIGURATION_RESPONSE frame from KNXNet/IP Server."""
 
 TUNNELING_REQUEST_TIMEOUT = 1
-"""KNXNet/IP Client shall wait for 1 second for a TUNNELING_ACK response on a TUNNELING_REQUEST frame from KNXNet/IP Server."""
-
-"""
-    TODO:
-        * Build Test for HostProtocolAddressInformation
-        * Implement the other Stuff to Build Easily and KNXIP Frame
-
-"""
+"""KNXNet/IP Client shall wait for 1 second for a TUNNELING_ACK response on a
+TUNNELING_REQUEST frame from KNXNet/IP Server."""
 
 
 class ServiceTypeIdentifier(IntEnum):
@@ -102,7 +94,6 @@ class ServiceTypeIdentifier(IntEnum):
 
     ROUTING_LOST_MESSAGE = 0x0531
     """Used for indication of lost KNXNet/IP Routing messages. This service is unconfirmed"""
-
 
 
 class ConnectionType(IntEnum):
@@ -391,12 +382,12 @@ class HostProtocolAddressInformation():
                            )
 
     @classmethod
-    def from_bytes(cls, bytes):
+    def from_bytes(cls, data):
         """
         Create a new Instance of an Host Protocol Address Information Defined in KNX Standard 3.8.2-8.6.2
         :param bytes: Byte Array of HPAI
         """
-        hpai_tuple = struct.unpack('BB4s2s',bytes)
+        hpai_tuple = struct.unpack('BB4s2s',data)
         return cls(
             str(ipaddress.IPv4Address(hpai_tuple [2])),
             (struct.unpack('!H', hpai_tuple[3]))[0],
@@ -449,6 +440,7 @@ class TunnelConnectionRequestInformation():
         :param tunnel_knx_layer: TunnelKNXLayer
         """
         self.tunnel_knx_layer = tunnel_knx_layer
+        pass
 
     def __bytes__(self):
         """
@@ -471,23 +463,11 @@ class ConnectionTypeSpecificHeader():
     #TODO: How to Implement this ?? where is the Information, do we need to Pack this into Connectionheader??
 
 
-class ConnectionHeader():
-    """
-    Represent a Class to Hold and Build a Host Protocol Address Information (HPAI) byte array as defined in KNX Standard v2.1 3.8.2 - 5.3
-    """
-
-    length = 0 #the Total Length of the Connectionheader
-    channel_id = 0
-    sequence_counter = 0 #  Should be Increment by one for each Connection, Maybe do this in the Socket Class itself
-    service_type_identifier = 0
-    connection_type_specified_header = None # is the Connection Request Information CRI ??????
-
-    def add_to_sequence_counter(self):
-        self.sequence_counter += 1
-
-
 class KNXNetIPHeader():
-    """Represent the KNXNetIPHeader defined in KNX Standard v2.1 3.8.2 - 2.3.1"""
+    """Represent the KNXNetIPHeader defined in KNX Standard v2.1 3.8.2 - 2.3.1
+
+    self.total_frame_length need to be Set from the KNXIPFrame Class in the .__bytes__() function
+    """
 
     length = 0x06 # KNX Header Frame is always 6 Bytes Long
     service_type_identifier = 0x00 # ServiceTypeIdentifier Enum
@@ -497,6 +477,7 @@ class KNXNetIPHeader():
 
     def __init__(self, service_type_identifier,total_frame_length=0x0006):
         """
+        Create a Instance of an KNXNetIPHeader Object
 
         :param service_type_identifier: ServiceTypeIdentifier
         """
@@ -518,28 +499,111 @@ class KNXNetIPHeader():
                            )
 
     @classmethod
-    def from_bytes(cls,bytes):
-        t = struct.unpack('BB2s2s', bytes)
+    def from_bytes(cls, data):
+        """
+        Construct a KNXNetIPHeader from Binary
+        :param data: bytes
+        :return: KNXNetIPHeader Instance
+        """
+        t = struct.unpack('BB2s2s', data)
         return cls(
             ServiceTypeIdentifier(struct.unpack('!h',t[2])[0]),
             struct.unpack('!h',t[3])[0]
         )
 
+    @property
+    def total_size(self):
+        return self.total_frame_length
+
+    @total_size.setter
+    def total_size(self,value):
+        self.total_frame_length = value
 
 
+
+class KNXNetIPConnectionheader():
+    """
+    Represent the KNXIP Connection header defined in KNX Standard v2.1 3.8.2 - 5.3
+    """
+
+    size = 0x04  # KNX Connection Header Length
+    communication_channel_id = 0x0  # Connection channel Id 1 Byte!
+    sequence_counter = 0x0  # Sequence Counter need to be set by KNX IP Frame
+
+    def __init__(self,communication_channel_id,sequence_counter):
+        """
+        Create a Instance of a KNXIP Connection header defined in KNX Standard v2.1 3.8.4 - 4.4.5
+        :param communication_channel_id: Integer Id of the communication channel
+        :param sequence_counter: Sequence Counter of the communication channel, need to be Upped by KNX Frame on need
+        """
+        self.communication_channel_id = communication_channel_id
+        self.sequence_counter = sequence_counter
+        pass
+
+    def __bytes__(self):
+        """"
+        Return this KNXIPConnectionheader Object as bytes
+
+        :return: bytes
+        """
+
+        return struct.pack('BBBB',
+                           self.size,
+                           self.communication_channel_id,
+                           self.sequence_counter,
+                           0x0) # Reserved
+
+    @classmethod
+    def from_bytes(cls, data):
+        """
+        Construct a KNXIPConnectionheader from Binary
+        :param data: Bytes
+        :return: KNXIPConnectionheader
+        """
+        t = struct.unpack('BBBB', data)
+        return cls(
+            t[1],
+            t[2]
+        )
 
 
 class KNXNetIPBody():
+    """
+    Represent the KNXNet IP Body defined in KNX Standard v2.1 3.8.4 - 4.4.6
+    """
     knxip_connection_header = None
     knxip_cemi_frame = None
 
-    def __init__(self,knxip_connection_header,knxip_cemi_frame):
+    has_knxip_cemi_frame = False
+
+    def __init__(self, knxip_connection_header, knxip_cemi_frame=None):
         self.knxip_connection_header = knxip_connection_header
-        self.knxip_cemi_frame = knxip_cemi_frame
+        if knxip_cemi_frame is not None:
+            self.knxip_cemi_frame = knxip_cemi_frame
+            self.has_knxip_cemi_frame = True
+
+    def __bytes__(self):
+        if self.has_knxip_cemi_frame:
+            raise NotImplementedError
+            #TODO: Implement with CEMI Frame
+        else:
+            return bytes(self.knxip_connection_header)
+
+    @classmethod
+    def from_bytes(cls,data):
+        """
+        Create a instance of a KNXNetIPBody defined in KNX Standard v2.1 3.8.4 - 4.4.6
+        :param data: bytes
+        :return: KNXNetIPBody
+        """
+        if len(data) > 4:
+            # TODO: Implement CEMI Frame
+            raise NotImplementedError
+        else:
+            # No Data only connection header
+            return cls(KNXNetIPConnectionheader.from_bytes(data))
 
 
-class KNXIPConnectionheader():
-    size=0 # KNX Connection Header Length
 
 
 
@@ -548,15 +612,18 @@ class KNXNetIPFrame():
     knxip_header = None
     knxip_body = None
 
-    def __init__(self,knxip_header,knxip_body):
+    def __init__(self,knxip_header,knxip_body=0x0):
         self.knxip_header = knxip_header
         self.knxip_body = knxip_body
         pass
 
     def __bytes__(self):
-        raise NotImplementedError
-        pass
+        self.knxip_header.total_size = len(bytes(self.knxip_header) + bytes(self.knxip_body))
+        return bytes(self.knxip_header) + bytes(self.knxip_body)
 
+    @classmethod
+    def from_bytes(cls, data):
+        return
 
 
 
