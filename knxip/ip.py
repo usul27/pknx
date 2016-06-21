@@ -320,42 +320,40 @@ class KNXIPTunnel():
             raise KNXException(
                 "Could not initiate tunnel connection, STI = {0:x}".format(r_sid))
 
+
     def disconnect(self):
         """Disconnect an open tunnel connection"""
+        if self.channel:
+            logging.debug("Disconnecting KNX/IP tunnel...")
 
-        def disconnect(self):
-            """Disconnect an open tunnel connection"""
-            if self.channel:
-                logging.debug("Disconnecting KNX/IP tunnel...")
+            b = []
+            # =========== IP Header ==========
+            b.extend([0x06])  # HeaderSize
+            b.extend([0x10])  # KNXIP Protocl Version
+            b.extend([0x02, 0x09])  # Service Identifier = Disconnect Request
+            b.extend([0x00,
+                      0x10])  # Headersize +2 + sizeof(HPAI) = 2 (Headersize) + 2 + 8(sizeof(HPAI) = 16 = 0x10 || Need to be 2 Bytes
 
-                b = []
-                # =========== IP Header ==========
-                b.extend([0x06])  # HeaderSize
-                b.extend([0x10])  # KNXIP Protocl Version
-                b.extend([0x02, 0x09])  # Service Identifier = Disconnect Request
-                b.extend([0x00,
-                          0x10])  # Headersize +2 + sizeof(HPAI) = 2 (Headersize) + 2 + 8(sizeof(HPAI) = 16 = 0x10 || Need to be 2 Bytes
+            # ============ IP Body ==========
+            b.extend([self.channel])  # Communication Channel Id
+            b.extend([0x00])  # Reserverd
+            # =========== Client HPAI ===========
+            b.extend([0x08])  # HPAI Length
+            b.extend([0x01])  # Host Protocol
+            b.extend(ip_to_array(self.control_socket.getsockname()[0]))  # Tunnel Client Socket IP
+            b.extend(int_to_array(self.control_socket.getsockname()[1]))  # Tunnel Client Socket Port
 
-                # ============ IP Body ==========
-                b.extend([self.channel])  # Communication Channel Id
-                b.extend([0x00])  # Reserverd
-                # =========== Client HPAI ===========
-                b.extend([0x08])  # HPAI Length
-                b.extend([0x01])  # Host Protocol
-                b.extend(ip_to_array(self.control_socket.getsockname()[0]))  # Tunnel Client Socket IP
-                b.extend(int_to_array(self.control_socket.getsockname()[1]))  # Tunnel Client Socket Port
-
-                # TODO: Glaube Sequence erhöhen ist nicht notwendig im Control Tunnel beim Disconnect???
-                if (self.seq < 0xff):
-                    self.seq += 1
-                else:
-                    self.seq = 0
-
-                self.control_socket.sendto(bytes(b), (self.remote_ip, self.remote_port))
-                # TODO: Impelement the Disconnect_Response Handling from Gateway Control Channel > Client Control Channel
-
+            # TODO: Glaube Sequence erhöhen ist nicht notwendig im Control Tunnel beim Disconnect???
+            if (self.seq < 0xff):
+                self.seq += 1
             else:
-                logging.debug("Disconnect - no connection, nothing to do")
+                self.seq = 0
+
+            self.control_socket.sendto(bytes(b), (self.remote_ip, self.remote_port))
+            # TODO: Impelement the Disconnect_Response Handling from Gateway Control Channel > Client Control Channel
+
+        else:
+            logging.debug("Disconnect - no connection, nothing to do")
 
     def send_tunnelling_request(self, cemi):
         """Send a tunneling request based on the given CEMI data.
