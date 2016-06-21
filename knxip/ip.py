@@ -320,20 +320,38 @@ class KNXIPTunnel():
             raise KNXException(
                 "Could not initiate tunnel connection, STI = {0:x}".format(r_sid))
 
+
     def disconnect(self):
         """Disconnect an open tunnel connection"""
         if self.channel:
             logging.debug("Disconnecting KNX/IP tunnel...")
-            f = KNXIPFrame(KNXIPFrame.DISCONNECT_REQUEST)
-            b = [self.channel, 0x00]
-            b.extend(self.hpai)
+
+            b = []
+            # =========== IP Header ==========
+            b.extend([0x06])  # HeaderSize
+            b.extend([0x10])  # KNXIP Protocl Version
+            b.extend([0x02, 0x09])  # Service Identifier = Disconnect Request
+            b.extend([0x00,
+                      0x10])  # Headersize +2 + sizeof(HPAI) = 2 (Headersize) + 2 + 8(sizeof(HPAI) = 16 = 0x10 || Need to be 2 Bytes
+
+            # ============ IP Body ==========
+            b.extend([self.channel])  # Communication Channel Id
+            b.extend([0x00])  # Reserverd
+            # =========== Client HPAI ===========
+            b.extend([0x08])  # HPAI Length
+            b.extend([0x01])  # Host Protocol
+            b.extend(ip_to_array(self.control_socket.getsockname()[0]))  # Tunnel Client Socket IP
+            b.extend(int_to_array(self.control_socket.getsockname()[1]))  # Tunnel Client Socket Port
+
+            # TODO: Glaube Sequence erhöhen ist nicht notwendig im Control Tunnel beim Disconnect???
             if (self.seq < 0xff):
                 self.seq += 1
             else:
                 self.seq = 0
-            f.body = b
-            self.data_server.socket.sendto(f.to_frame(),
-                                           (self.remote_ip, self.remote_port))
+
+            self.control_socket.sendto(bytes(b), (self.remote_ip, self.remote_port))
+            # TODO: Impelement the Disconnect_Response Handling from Gateway Control Channel > Client Control Channel
+
         else:
             logging.debug("Disconnect - no connection, nothing to do")
 
