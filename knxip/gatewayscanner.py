@@ -9,18 +9,13 @@ from knxip.helper import int_to_array
 logger = logging.getLogger(__name__)
 
 
-#Async IO Debugging
-logging.getLogger('asyncio').level = logging.DEBUG
-
-
-
 class gatewayscanner():
 
-    #_listener = None
-    #_broadcaster = None
-    _default_timeout = 10 #Static Timeout in Seconds
+    _listener = None
+    _broadcaster = None
+    _default_timeout = 5 #Static Timeout in Seconds
     _default_knx_port = 3671
-    _default_broadcast_address = "224.0.23.12" # Default Multicast Address Reserverd from KNX Assoc "224.0.23.12"
+    _default_broadcast_address = "224.0.23.11" # Default Multicast Address Reserverd from KNX Assoc "224.0.23.12"
 
     _listener_transport = None
     _broadcaster_transport = None
@@ -39,9 +34,6 @@ class gatewayscanner():
 
         logger.debug("Ready To Scan")
 
-
-
-
     def start_search(self):
         logger.debug("Start Scanning")
 
@@ -58,7 +50,7 @@ class gatewayscanner():
                 self._timeout
             ), local_addr=(self._broadcast_ip_address,0)
         )
-        self._listener_transport,listener_protocol = self._asyncio_loop.run_until_complete(coroutine_listen)
+        self._listener_transport, listener_protocol = self._asyncio_loop.run_until_complete(coroutine_listen)  #TODO Timeout with future
 
         #Building broadcast data message
         broadcast_data = self._build_search_request_data(
@@ -71,10 +63,12 @@ class gatewayscanner():
             lambda: self.KNXSearchBroadcastProtocol(broadcast_data,self._asyncio_loop,self._error_handler), remote_addr=(self._broadcast_address,self._broadcast_port)
         )
 
-        self._broadcaster_transport,broadcast_protocol = self._asyncio_loop.run_until_complete(coroutine_broadcaster)
+        self._broadcaster_transport,broadcast_protocol = self._asyncio_loop.run_until_complete(coroutine_broadcaster)  #TODO: Timeout with future
 
         #working
         self._asyncio_loop.run_forever()
+
+        #self._asyncio_loop.stop()
 
         #await self._asyncio_loop.run_until_complete(coroutine_broadcaster)
         #self._asyncio_loop.run_until_complete(coroutine_listen)
@@ -85,6 +79,13 @@ class gatewayscanner():
         print("---------------------------------------------------------------------------------")
 
         return self._resolved_gateway_ip_address, self._resolved_gateway_ip_port
+
+
+    def _timeout_handling(self):
+        #TODO: Implement Timeout handling
+        logger.error("Listener dont recieve any packets, timeout occure!")
+        self._cleanup()
+        pass
 
 
     def _process_response(self,received_data,received_from):
@@ -130,21 +131,20 @@ class gatewayscanner():
         return bytes(req)
 
     def _cleanup(self):
-        logger.debug("Cleaning up Resources")
-        self._broadcaster_transport.close()
-        self._listener_transport.close()
-        pass
-        #self._asyncio_loop.stop()
 
-    def _error_handler(self,text):
-        logger.error(text)
+        logging.debug("Cleaning up")
+        if self._broadcaster_transport is not None:
+            self._broadcaster_transport.close()
+
+        if self._listener_transport is not None:
+            self._listener_transport.close()
+
+        pass
+
+    def _error_handler(self,oserror):
+        self._asyncio_loop.stop()
         #self._cleanup()
         pass
-
-    def _timeout_handling(self):
-        logger.error("Listener dont receieve any packets, timeout of {} occured!".format(self._timeout))
-        pass
-
 
     class KNXSearchBroadcastReceiverProtocol(asyncio.DatagramProtocol):
         def __init__(self,broadcast_data_received_callback,error_handler_callback,timeout_callback,timeout_value):
@@ -152,7 +152,6 @@ class gatewayscanner():
             self.error_handler = error_handler_callback
             self.timeout_handler = timeout_callback
             self.timeout_in_seconds = timeout_value
-            self.done = False
 
         def timeout(self):
             self.transport.close()
@@ -167,17 +166,21 @@ class gatewayscanner():
 
 
         def datagram_received(self, data, addr):
-            self.processing_data(data,addr)
+            #self.done = True #TODO: When i do this it hangs, WHY????, we get connection Lost error
             self.h_timeout.cancel()
-            #self.done = True
-            self.transport.close()
+            self.processing_data(data,addr)
+            #self.transport.close()
 
         def error_received(self,exc):
-            self.error_handler("Error on Listener Socket")
+            logging.error("Error on Listener Socket")
+            self.error_handler(exc)
 
         def connection_lost(self,exc):
-            if(self.done == False):
-                self.error_handler("Connection Lost on Listener Socket")
+            #if exc is not None:
+            #logging.error("Connection Lost on Listener Socket")
+            self.error_handler(exc) #TODO:: if i uncomment this i get a hang???
+            pass
+
 
     class KNXSearchBroadcastProtocol:
         def __init__(self,broadcast_data,async_loop,error_handler_callback):
@@ -188,13 +191,18 @@ class gatewayscanner():
 
         def connection_made(self, transport):
             self.transport = transport
+            logging.debug("Broadcast Search Request")
             self.transport.sendto(self.data)
 
         def error_received(self,exc):
-            self.error_handler("Error on Broadcast Socket")
+            logging.error("Error on Broadcast Socket")
+            self.error_handler(exc)
 
         def connection_lost(self,exc):
-            self.error_handler("Connection Lost on Broadcast Socket")
+            if exc is not None:
+                logging.error("Connection Lost on Broadcast Socket")
+                self.error_handler(exc)
+
 
 
 if __name__ == '__main__':
