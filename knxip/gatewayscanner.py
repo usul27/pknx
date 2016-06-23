@@ -13,7 +13,7 @@ class gatewayscanner():
 
     _listener = None
     _broadcaster = None
-    _default_timeout = 5 #Static Timeout in Seconds
+    _default_timeout = 2 #Static Timeout in Seconds
     _default_knx_port = 3671
     _default_broadcast_address = "224.0.23.11" # Default Multicast Address Reserverd from KNX Assoc "224.0.23.12"
 
@@ -68,12 +68,6 @@ class gatewayscanner():
         #working
         self._asyncio_loop.run_forever()
 
-        #self._asyncio_loop.stop()
-
-        #await self._asyncio_loop.run_until_complete(coroutine_broadcaster)
-        #self._asyncio_loop.run_until_complete(coroutine_listen)
-
-        #x = yield from asyncio.wait_for(listen,broadcaster,50,self._asyncio_loop)
         print("---------------------------------------------------------------------------------")
         print("Gateway found: {}:{}".format(self._resolved_gateway_ip_address,self._resolved_gateway_ip_port))
         print("---------------------------------------------------------------------------------")
@@ -176,9 +170,10 @@ class gatewayscanner():
             self.error_handler(exc)
 
         def connection_lost(self,exc):
+
             #if exc is not None:
-            #logging.error("Connection Lost on Listener Socket")
-            self.error_handler(exc) #TODO:: if i uncomment this i get a hang???
+            logging.error("Connection Lost on Listener Socket")
+            #self.error_handler(exc) #TODO:: if i uncomment this i get a hang???
             pass
 
 
