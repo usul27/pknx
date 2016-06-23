@@ -11,6 +11,19 @@ try:
 except ImportError:
     signal = None
 
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 0))
+        IP = s.getsockname()[0]
+    except:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+print(get_ip())
 
 def searchrequestdone(data):
     print("handler (0)",data)
@@ -77,17 +90,16 @@ multicastgroup = "224.0.23.12"
 loop = asyncio.get_event_loop()
 #loop.add_signal_handler(signal.SIGINT,loop.stop())
 
-host='192.168.1.16'
-port=5455
+host=get_ip()
 
 default_knx_port=3671
 
 listen = loop.create_datagram_endpoint(
-    lambda: ReceiverProtocol(searchrequestdone), local_addr=(host,port)
+    lambda: ReceiverProtocol(searchrequestdone), local_addr=("0.0.0.0",0)
 )
 listen_transport, listen_protocol = loop.run_until_complete(listen)
 
-
+port = listen_transport._sock.getsockname()[1]
 
 #Send Package
 req = []
