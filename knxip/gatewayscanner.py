@@ -1,3 +1,18 @@
+"""
+
+KNX IP Gateway Scanner
+
+Search for an KNX IP Gateway in the network.
+
+Reminder:
+This Method is Blocking!
+
+TODO:
+    - Implement Return Object for the Device Information we get also from the Search Request Response
+
+David Baumann(daBONDi@users.noreply.github.com)
+"""
+
 import asyncio
 import socket
 import logging
@@ -8,87 +23,113 @@ from knxip.helper import int_to_array
 
 logger = logging.getLogger(__name__)
 
+class GatewayScanner():
 
-class gatewayscanner():
+    _default_timeout = 5  #Default Timeout for waiting for a Response
+    _default_knx_port = 3671  #Default Port to Broadcast the searchrequest to
+    _default_broadcast_address = "224.0.23.12" # Default Multicast Address from KNX Assoc "224.0.23.12"
 
-    _listener = None
-    _broadcaster = None
-    _default_timeout = 2 #Static Timeout in Seconds
-    _default_knx_port = 3671
-    _default_broadcast_address = "224.0.23.11" # Default Multicast Address Reserverd from KNX Assoc "224.0.23.12"
+    _listener_transport = None  #Holder for the Transport Protocol Instance of the Broadcast listener
+    _broadcaster_transport = None  #Holder for the Transport Protocol Instance of the Broadcast sender
 
-    _listener_transport = None
-    _broadcaster_transport = None
-
-    _resolved_gateway_ip_address = None
-    _resolved_gateway_ip_port = None
+    _resolved_gateway_ip_address = None  #Gateway IP Address if found
+    _resolved_gateway_ip_port = None  #Gateway Port if found
 
     _asyncio_loop = None
 
-    def __init__(self,broadcast_source_ip_address="0.0.0.0",broadcast_port=_default_knx_port,broadcast_address=_default_broadcast_address,timeout=_default_timeout):
+    def __init__(self, broadcast_source_ip_address="0.0.0.0",
+                 broadcast_port=_default_knx_port,
+                 broadcast_address=_default_broadcast_address,
+                 timeout=_default_timeout):
+        """
+        Create a new Instance of a GatewayScanner Object
+
+        :param broadcast_source_ip_address: IPv4 Address where we send the Address out
+        :param broadcast_port: UDP Port to send the Broadcast (Typical KNX IP Port: 3671)
+        :param broadcast_address: Broadcast Address to send the KNX Searchrequest (Typical "224.0.23.12")
+        :param timeout: Time in seconds to wait for an Response before returning None on the start_search method
+        """
         self.__timeout = timeout
         self._broadcast_ip_address = broadcast_source_ip_address
         self._broadcast_address = broadcast_address
         self._broadcast_port = broadcast_port
         self._timeout = timeout
-
-        logger.debug("Ready To Scan")
+        pass
 
     def start_search(self):
-        logger.debug("Start Scanning")
+        """
+        Start the Gateway Search Request and return the Gateway Address information
 
-        #Get Asyncio Loop
+        :rtype: (string,int)
+        :return: a tuple(string(IP),int(Port) when found or None when timeout occur
+        """
+
         self._asyncio_loop = asyncio.get_event_loop()
 
-
-        # Create Receiver Server
+        """ Creating Broadcast Receiver """
         coroutine_listen = self._asyncio_loop.create_datagram_endpoint(
             lambda: self.KNXSearchBroadcastReceiverProtocol(
                 self._process_response,
-                self._error_handler,
                 self._timeout_handling,
-                self._timeout
+                self._timeout,
+                self._asyncio_loop
             ), local_addr=(self._broadcast_ip_address,0)
         )
         self._listener_transport, listener_protocol = self._asyncio_loop.run_until_complete(coroutine_listen)  #TODO Timeout with future
 
-        #Building broadcast data message
+        """ Building Broadcast Socket"""
         broadcast_data = self._build_search_request_data(
             self._get_local_ip(),
             self._listener_transport._sock.getsockname()[1]
         )
 
-        #We are ready to fire the broadcast message
+        """ We are ready to fire the broadcast message """
         coroutine_broadcaster = self._asyncio_loop.create_datagram_endpoint(
-            lambda: self.KNXSearchBroadcastProtocol(broadcast_data,self._asyncio_loop,self._error_handler), remote_addr=(self._broadcast_address,self._broadcast_port)
+            lambda: self.KNXSearchBroadcastProtocol(broadcast_data,self._asyncio_loop), remote_addr=(self._broadcast_address,self._broadcast_port)
         )
 
         self._broadcaster_transport,broadcast_protocol = self._asyncio_loop.run_until_complete(coroutine_broadcaster)  #TODO: Timeout with future
 
-        #working
+        """ Waiting for all Broadcast receive or timeout """
         self._asyncio_loop.run_forever()
 
-        print("---------------------------------------------------------------------------------")
-        print("Gateway found: {}:{}".format(self._resolved_gateway_ip_address,self._resolved_gateway_ip_port))
-        print("---------------------------------------------------------------------------------")
-
-        return self._resolved_gateway_ip_address, self._resolved_gateway_ip_port
-
+        """ We got Response or Timeout """
+        if self._resolved_gateway_ip_address is None and self._resolved_gateway_ip_port is None:
+            logger.debug("Gateway not found!")
+            return None
+        else:
+            logger.debug("Gateway found: {}:{}".format(self._resolved_gateway_ip_address,self._resolved_gateway_ip_port))
+            return self._resolved_gateway_ip_address, self._resolved_gateway_ip_port
 
     def _timeout_handling(self):
-        #TODO: Implement Timeout handling
-        logger.error("Listener dont recieve any packets, timeout occure!")
-        self._cleanup()
+        """
+        Timeout handler of the Broadcast Listener Socket
+        """
+        logger.error("Listener don't receive any packets, timeout occur(Timeout in Seconds: {} !",format(self._timeout))
         pass
-
 
     def _process_response(self,received_data,received_from):
-        self._resolved_gateway_ip_address, self._resolved_gateway_ip_port = self._get_gateway_info_from_response(received_data)
-        self._cleanup()
+        """
+        Processing the incoming UDP Datagram from the Broadcast Socket
+
+        :param received_data: UDP Datagram Package to Process
+        :param received_from: Socket Sender address
+        :type received_data: Byte
+        :type received_from: address information tuple(sting,int)
+        """
+        r = bytearray(received_data)
+        self._resolved_gateway_ip_address = str.format("{}.{}.{}.{}", r[8], r[9], r[10], r[11])
+        self._resolved_gateway_ip_port = struct.unpack('!h', bytes(r[12:14]) )[0]
         pass
 
+    @staticmethod
+    def _get_local_ip():
+        """
+        Static function to get local IPV4 IP Address
 
-    def _get_local_ip(self):
+        :return: IP Address
+        :rtype: string
+        """
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
             # doesn't even have to be reachable
@@ -100,18 +141,16 @@ class gatewayscanner():
             s.close()
         return IP
 
-    def _get_gateway_info_from_response(self,response_data):
-        r = bytearray(response_data)
-        #hpai = r[6:15]
-        #iparray = hpai[2:6]
-        #ipaddress = str.format("{}.{}.{}.{}", iparray[0], iparray[1], iparray[2], iparray[3])
-        #portarray = hpai[6:8]
-        #ipaddress = str.format("{}.{}.{}.{}", r[8], r[9], r[10], r[11])
-        #port = struct.unpack('!h', bytes(r[12:14]) )[0]
+    @staticmethod
+    def _build_search_request_data(requestor_ipaddress,requestor_port):
+        """
+        Build a KNX IP Search Request Broadcast Package
 
-        return str.format("{}.{}.{}.{}", r[8], r[9], r[10], r[11]), struct.unpack('!h', bytes(r[12:14]) )[0]
-
-    def _build_search_request_data(self,requestor_ipaddress,requestor_port):
+        :param requestor_ipaddress: IP Address of the Search Request Response Receiver
+        :param requestor_port: Port of the Search Request Response Receiver
+        :return: Complete Search Request Broadcast Package
+        :rtype: bytes
+        """
         req = []
         req.extend([0x06])  # HeaderSize
         req.extend([0x10])  # KNXNetIP Version
@@ -124,93 +163,80 @@ class gatewayscanner():
         req.extend(int_to_array(requestor_port))
         return bytes(req)
 
-    def _cleanup(self):
-
-        logging.debug("Cleaning up")
-        if self._broadcaster_transport is not None:
-            self._broadcaster_transport.close()
-
-        if self._listener_transport is not None:
-            self._listener_transport.close()
-
-        pass
-
-    def _error_handler(self,oserror):
-        self._asyncio_loop.stop()
-        #self._cleanup()
-        pass
-
     class KNXSearchBroadcastReceiverProtocol(asyncio.DatagramProtocol):
-        def __init__(self,broadcast_data_received_callback,error_handler_callback,timeout_callback,timeout_value):
+
+        def __init__(self,broadcast_data_received_callback,timeout_callback,timeout_value,loop):
+            """
+            Create a new KNX Search Broadcast Receiver Protocol Object
+
+            :param broadcast_data_received_callback: function callback if data received
+            :param timeout_callback: function callback if timeout occur
+            :param timeout_value: Timeout in seconds when to stop waiting
+            :param loop: Asyncio Loop to use
+            """
             self.processing_data = broadcast_data_received_callback
-            self.error_handler = error_handler_callback
             self.timeout_handler = timeout_callback
             self.timeout_in_seconds = timeout_value
-
-        def timeout(self):
-            self.transport.close()
-            self.timeout_handler()
-
-        def connection_made(self,transport):
-            logger.debug("Search Request Broadcast Receiver Started")
-            self.transport = transport
+            self.loop = loop
 
             self.h_timeout = asyncio.get_event_loop().call_later(
                 self.timeout_in_seconds, self.timeout)
 
+        def timeout(self):
+            logger.error("Listener don't receive any packets, timeout!")
+            self.transport.close()
+
+        def connection_made(self,transport):
+            logger.debug("Broadcast Receiver Started")
+            self.transport = transport
 
         def datagram_received(self, data, addr):
-            #self.done = True #TODO: When i do this it hangs, WHY????, we get connection Lost error
+            logger.debug("Search Request Response received from {}:{}".format(addr[0],addr[1]))
             self.h_timeout.cancel()
             self.processing_data(data,addr)
-            #self.transport.close()
+            self.transport.close()
 
         def error_received(self,exc):
-            logging.error("Error on Listener Socket")
-            self.error_handler(exc)
+            if exc:
+                logger.error("Error on the broadcast receiver socket! {}".format(exc))
 
         def connection_lost(self,exc):
+            if exc:
+                logger.error("Error on the broadcast receiver socket! {}".format(exc))
+            else:
+                logger.debug("Closing broadcast receiver socket")
 
-            #if exc is not None:
-            logging.error("Connection Lost on Listener Socket")
-            #self.error_handler(exc) #TODO:: if i uncomment this i get a hang???
-            pass
-
+            self.loop.stop()
+            super().connection_lost(exc)
 
     class KNXSearchBroadcastProtocol:
-        def __init__(self,broadcast_data,async_loop,error_handler_callback):
+        def __init__(self,broadcast_data,async_loop):
+            """
+             Create a new KNX Search Broadcast Protocol Object
+
+            :param broadcast_data: Data to Broadcast
+            :type broadcast_data: bytes
+            :param async_loop: Asyncio Base Event Loop to use
+            :type async_loop: BaseEventLoop
+            """
             self.data = broadcast_data
             self.loop = async_loop
             self.transport = None
-            self.error_handler = error_handler_callback
 
         def connection_made(self, transport):
             self.transport = transport
-            logging.debug("Broadcast Search Request")
+            logger.debug("Broadcast Search Request Started")
             self.transport.sendto(self.data)
+            logger.debug("Search Request broadcast send, waiting for response ")
 
         def error_received(self,exc):
-            logging.error("Error on Broadcast Socket")
-            self.error_handler(exc)
+            logger.error("Error on Broadcast Socket")
 
         def connection_lost(self,exc):
             if exc is not None:
-                logging.error("Connection Lost on Broadcast Socket")
-                self.error_handler(exc)
+                logger.error("Connection Lost on Broadcast Socket")
 
-
-
-if __name__ == '__main__':
-
-    import sys
-    logging.basicConfig(level=logging.DEBUG)
-    logging.StreamHandler(sys.stdout)
-
-
-    x = gatewayscanner()
-    x.start_search()
-
-
+            super.connection_lost(exc)
 
 
 
