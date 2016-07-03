@@ -11,8 +11,8 @@ class test_GatewayScanner(unittest.TestCase):
         desired_port = 3671
         sc = GatewayScanner()
         result = sc.start_search()
-        print("Received Gateay: {}:{}".format(result[0],result[1]))
-        self.assertEqual(desired_port,result[1])
+        print("Received Gateay: {}:{}".format(result[0], result[1]))
+        self.assertEqual(desired_port, result[1])
 
 
 if __name__ == '__main__':
