@@ -180,7 +180,10 @@ class CEMIMessage():
     def init_group_write(self, dst_addr=1, data=[0]):
         """Initialize the CEMI frame for a group write operation."""
         self.init_group(dst_addr)
-        self.tpci_apci = 0x00 * 256 + 0x80  # unnumbered data packet, group write
+
+        # unnumbered data packet, group write
+        self.tpci_apci = 0x00 * 256 + 0x80
+
         self.data = data
 
     def init_group_read(self, dst_addr=1):
@@ -207,7 +210,7 @@ class CEMIMessage():
         return b
 
     def __str__(self):
-        """Return a human readable representation of the object for debugging."""
+        """Return a human readable string for debugging."""
         c = "??"
         if self.cmd == self.CMD_GROUP_READ:
             c = "RD"
@@ -232,7 +235,10 @@ class KNXIPTunnel():
     notify = None
 
     def __init__(self, ip, port, valueCache=None):
-        """Initialize the connection to the given host/port, but do not connect."""
+        """Initialize the connection to the given host/port
+
+        Initialized the connection, but does not connect.
+        """
         self.remote_ip = ip
         self.remote_port = port
         self.discovery_port = None
@@ -265,7 +271,8 @@ class KNXIPTunnel():
                 target=self.data_server.serve_forever)
             data_server_thread.daemon = True
             data_server_thread.start()
-            logging.debug("Started data server on UDP port {}".format(self.data_port))
+            logging.debug(
+                "Started data server on UDP port {}".format(self.data_port))
 
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind((local_ip, 0))
@@ -308,18 +315,18 @@ class KNXIPTunnel():
                 self.hpai = received[8:10]
                 logging.debug("Connected KNX IP tunnel " +
                               "(Channel: {}, HPAI: {} {})".format(
-                                self.channel, self.hpai[0], self.hpai[1]))
+                                  self.channel, self.hpai[0], self.hpai[1]))
             else:
                 logging.debug("KNX IP tunnel connect error:" +
                               "(Channel: {}, Status: {})".format(
-                                self.channel, status))
+                                  self.channel, status))
                 raise KNXException("Could not initiate tunnel connection " +
                                    "status={}".format(status), status)
 
         else:
             raise KNXException(
-                "Could not initiate tunnel connection, STI = {0:x}".format(r_sid))
-
+                "Could not initiate tunnel connection, STI = {0:x}"
+                .format(r_sid))
 
     def disconnect(self):
         """Disconnect an open tunnel connection"""
@@ -331,8 +338,9 @@ class KNXIPTunnel():
             b.extend([0x06])  # HeaderSize
             b.extend([0x10])  # KNXIP Protocl Version
             b.extend([0x02, 0x09])  # Service Identifier = Disconnect Request
-            b.extend([0x00,
-                      0x10])  # Headersize +2 + sizeof(HPAI) = 2 (Headersize) + 2 + 8(sizeof(HPAI) = 16 = 0x10 || Need to be 2 Bytes
+            # Headersize +2 + sizeof(HPAI) = 2 (Headersize) + 2
+            # + 8(sizeof(HPAI) = 16 = 0x10 || Need to be 2 Bytes
+            b.extend([0x00, 0x10])
 
             # ============ IP Body ==========
             b.extend([self.channel])  # Communication Channel Id
@@ -340,17 +348,22 @@ class KNXIPTunnel():
             # =========== Client HPAI ===========
             b.extend([0x08])  # HPAI Length
             b.extend([0x01])  # Host Protocol
-            b.extend(ip_to_array(self.control_socket.getsockname()[0]))  # Tunnel Client Socket IP
-            b.extend(int_to_array(self.control_socket.getsockname()[1]))  # Tunnel Client Socket Port
+            # Tunnel Client Socket IP
+            b.extend(ip_to_array(self.control_socket.getsockname()[0]))
+            # Tunnel Client Socket Port
+            b.extend(int_to_array(self.control_socket.getsockname()[1]))
 
-            # TODO: Glaube Sequence erhöhen ist nicht notwendig im Control Tunnel beim Disconnect???
+            # TODO: Glaube Sequence erhöhen ist nicht notwendig im Control
+            # Tunnel beim Disconnect???
             if (self.seq < 0xff):
                 self.seq += 1
             else:
                 self.seq = 0
 
-            self.control_socket.sendto(bytes(b), (self.remote_ip, self.remote_port))
-            # TODO: Impelement the Disconnect_Response Handling from Gateway Control Channel > Client Control Channel
+            self.control_socket.sendto(
+                bytes(b), (self.remote_ip, self.remote_port))
+            # TODO: Impelement the Disconnect_Response Handling from Gateway
+            # Control Channel > Client Control Channel
 
         else:
             logging.debug("Disconnect - no connection, nothing to do")
@@ -428,8 +441,8 @@ class KNXIPTunnel():
         elif (d[0] == 1):
             self.group_write(addr, [0])
         else:
-            problem = "Can't toggle group address {} as value is {}".format(addr, d[
-                                                                            0])
+            problem = "Can't toggle group address {} as value is {}".format(
+                        addr, d[0])
             logging.error(problem)
             raise KNXException(problem)
 
