@@ -7,6 +7,7 @@ import logging
 
 from knxip.core import KNXException, ValueCache, E_NO_ERROR
 from knxip.helper import *
+from knxip.gatewayscanner import GatewayScanner
 
 is_py2 = sys.version[0] == '2'
 if is_py2:
@@ -234,7 +235,7 @@ class KNXIPTunnel():
     result_queue = None
     notify = None
 
-    def __init__(self, ip, port, valueCache=None):
+    def __init__(self, ip, port=3671, valueCache=None):
         """Initialize the connection to the given host/port
 
         Initialized the connection, but does not connect.
@@ -255,7 +256,24 @@ class KNXIPTunnel():
         self.disconnect()
 
     def connect(self):
-        """Connect to the KNX/IP tunnelling interface."""
+        """Connect to the KNX/IP tunnelling interface.
+
+        If the remote address is "0.0.0.0", it will use the Gateway scanner
+        to automatically detect a KNX gateway and it will connect to it if one
+        has been found.
+        """
+
+        if (self.remote_ip == "0.0.0.0"):
+            scanner = GatewayScanner()
+            try:
+                ip, port = scanner.start_search()
+                logging.info("Found KNX gateway {}/{}".format(ip, port))
+                self.remote_ip = ip
+                self.remote_port = port
+            except:
+                raise KNXException("No KNX/IP gateway given and no gateway "
+                                   "found by scanner, aborting")
+
         # Find my own IP
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect((self.remote_ip, self.remote_port))
