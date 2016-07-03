@@ -33,14 +33,14 @@ def parse_group_address(addr):
     if m:
         main = m.group(1)
         sub = m.group(2)
-        res = int(main)*256+int(sub)
+        res = int(main) * 256 + int(sub)
 
     m = re.match("([0-9]+)/([0-9]+)/([0-9]+)$", addr)
     if m:
         main = m.group(1)
         middle = m.group(2)
         sub = m.group(3)
-        res = int(main)*256*8+int(middle)*256+int(sub)
+        res = int(main) * 256 * 8 + int(middle) * 256 + int(sub)
 
     if res is None:
         raise KNXException("Address {} does not match any address scheme".
@@ -51,29 +51,29 @@ def parse_group_address(addr):
 
 class KNXData(object):
     """Helper class for KNX data format conversions"""
-    
+
+    @staticmethod
     def float_to_knx(f):
         """Convert a float to a 2 byte KNX float value"""
-    
-        if f< -671088.64 or f > 670760.96:
+
+        if f < -671088.64 or f > 670760.96:
             raise KNXException("float {} out of valid range".format(f))
-        
-        f=f*100
 
-        for e in range(0,15):
-            exp = pow(2,e)
-            if ((f/exp) >= -2048) and ((f/exp) < 2047):
+        f = f * 100
+
+        for e in range(0, 15):
+            exp = pow(2, e)
+            if ((f / exp) >= -2048) and ((f / exp) < 2047):
                 break
-    
-        if f<0:
-            s=1
-            m=int(2048+(f/exp))
-        else:
-            s=0
-            m=int(f/exp)
-        
 
-        return [(s << 7) + ( e << 3) + (m >> 8),
+        if f < 0:
+            s = 1
+            m = int(2048 + (f / exp))
+        else:
+            s = 0
+            m = int(f / exp)
+
+        return [(s << 7) + (e << 3) + (m >> 8),
                 m & 0xff]
 
 
@@ -95,7 +95,6 @@ class ValueCache(object):
             return True
         else:
             return False
-
 
 
 class KNXException(Exception):
@@ -124,8 +123,8 @@ class KNXException(Exception):
             E_TUNNELING_LAYER: "tunneling layer error",
         }
 
-        return super().__str__() + " "+msg.get(self.errorcode,
-                                               "unknown error code")
+        return super().__str__() + " " + msg.get(self.errorcode,
+                                                 "unknown error code")
 
 
 class KNXMessage(object):
@@ -151,7 +150,7 @@ class KNXMessage(object):
         self.multicast = self.multicast % 2
         self.routing = self.routing % 8
         self.length = self.length % 16
-        for i in range(0, self.length-1):
+        for i in range(0, self.length - 1):
             self.data[i] = self.data[i] % 0x100
 
     def to_frame(self):
@@ -165,11 +164,11 @@ class KNXMessage(object):
         res.append(self.dst_addr % 0x100)
         res.append((self.multicast << 7) + (self.routing << 4) + self.length)
 
-        for i in range(0, self.length-1):
+        for i in range(0, self.length - 1):
             res.append(self.data[i])
 
         checksum = 0
-        for i in range(0, 5+self.length):
+        for i in range(0, 5 + self.length):
             checksum += res[i]
 
         res.append(checksum % 0x100)
@@ -182,12 +181,13 @@ class KNXMessage(object):
 
         # Check checksum first
         checksum = 0
-        for i in range(0, len(frame)-1):
+        for i in range(0, len(frame) - 1):
             checksum += frame[i]
 
-        if (checksum % 0x100) != frame[len(frame)-1]:
-            raise KNXException('Checksum error in frame {}, expected {} but got {}'
-                               .format(tohex(frame), frame[len(frame)-1],
+        if (checksum % 0x100) != frame[len(frame) - 1]:
+            raise KNXException('Checksum error in frame {}, '
+                               'expected {} but got {}'
+                               .format(tohex(frame), frame[len(frame) - 1],
                                        checksum % 0x100))
 
         m.repeat = (frame[0] >> 5) & 0x01
@@ -199,7 +199,8 @@ class KNXMessage(object):
         m.length = frame[5] & 0x0f
         m.data = frame[6:-1]
 
-        if len(m.data)+1 != m.length:
-            raise KNXException('Frame {} has not the correct length'.format(tohex(frame)))
+        if len(m.data) + 1 != m.length:
+            raise KNXException(
+                'Frame {} has not the correct length'.format(tohex(frame)))
 
         return m
