@@ -29,17 +29,17 @@ def parse_group_address(addr):
     if re.match('[0-9]+$', addr):
         res = int(addr)
 
-    m = re.match("([0-9]+)/([0-9]+)$", addr)
-    if m:
-        main = m.group(1)
-        sub = m.group(2)
+    match = re.match("([0-9]+)/([0-9]+)$", addr)
+    if match:
+        main = match.group(1)
+        sub = match.group(2)
         res = int(main) * 256 + int(sub)
 
-    m = re.match("([0-9]+)/([0-9]+)/([0-9]+)$", addr)
-    if m:
-        main = m.group(1)
-        middle = m.group(2)
-        sub = m.group(3)
+    match = re.match("([0-9]+)/([0-9]+)/([0-9]+)$", addr)
+    if match:
+        main = match.group(1)
+        middle = match.group(2)
+        sub = match.group(3)
         res = int(main) * 256 * 8 + int(middle) * 256 + int(sub)
 
     if res is None:
@@ -49,46 +49,21 @@ def parse_group_address(addr):
     return res
 
 
-class KNXData(object):
-    """Helper class for KNX data format conversions"""
-
-    @staticmethod
-    def float_to_knx(f):
-        """Convert a float to a 2 byte KNX float value"""
-
-        if f < -671088.64 or f > 670760.96:
-            raise KNXException("float {} out of valid range".format(f))
-
-        f = f * 100
-
-        for e in range(0, 15):
-            exp = pow(2, e)
-            if ((f / exp) >= -2048) and ((f / exp) < 2047):
-                break
-
-        if f < 0:
-            s = 1
-            m = int(2048 + (f / exp))
-        else:
-            s = 0
-            m = int(f / exp)
-
-        return [(s << 7) + (e << 3) + (m >> 8),
-                m & 0xff]
-
-
 class ValueCache(object):
     """A simple caching class based on dictionaries"""
 
     values = {}
 
     def __init__(self):
+        """Initialize an empty cache"""
         pass
 
     def get(self, name):
+        """Get a value for the given name from cache"""
         return self.values.get(name)
 
     def set(self, name, value):
+        """Set the cached value for the given name"""
         old_val = self.values.get(name)
         if old_val != value:
             self.values[name] = value
