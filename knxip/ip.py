@@ -509,11 +509,7 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         """Process an incoming package."""
-        if is_py2:
-            data = str_to_bytes(self.request[0])
-        else:
-            data = self.request[0]
-
+        data = self.request[0]
         socket = self.request[1]
 
         f = KNXIPFrame.from_frame(data)
