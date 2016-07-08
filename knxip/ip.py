@@ -4,18 +4,12 @@ import socket
 import threading
 import sys
 import logging
+import queue as queue
+import socketserver as SocketServer
 
 from knxip.core import KNXException, ValueCache, E_NO_ERROR
 from knxip.helper import *
 from knxip.gatewayscanner import GatewayScanner
-
-is_py2 = sys.version[0] == '2'
-if is_py2:
-    import Queue as queue
-    import SocketServer
-else:
-    import queue as queue
-    import socketserver as SocketServer
 
 
 class KNXIPFrame():
@@ -234,6 +228,7 @@ class KNXIPTunnel():
     data_handler = None
     result_queue = None
     notify = None
+    address_listeners = {}
 
     def __init__(self, ip, port=3671, valueCache=None):
         """Initialize the connection to the given host/port
@@ -460,15 +455,52 @@ class KNXIPTunnel():
             self.group_write(addr, [0])
         else:
             problem = "Can't toggle group address {} as value is {}".format(
-                        addr, d[0])
+                addr, d[0])
             logging.error(problem)
             raise KNXException(problem)
+
+    def register_listener(self, address, func):
+        """Adds a listener to messages received on a specific address
+
+        If some KNX messages will be received from the KNX bus, this listener
+        will be called func(address, data).
+        There can be multiple listeners for a given address
+        """
+        listeners = self.address_listeners[address]
+        if listeners is None:
+            listeners = []
+            self.address_listeners[address] = listeners
+
+        if not(func in listeners):
+            listeners.add(func)
+
+        return True
+
+    def unregister_listener(self, address, func):
+        """Removes a listener function for a given address
+
+        Remove the listener for the given address. Returns true if the listener
+        was found and removed, false otherwise
+        """
+        listeners = self.address_listeners[address]
+        if listeners is None:
+            return False
+
+        if func in listeners:
+            listeners.remove(func)
+            return True
+
+        return False
 
     def received_message(self, address, data):
         """Process a message received from the KNX bus."""
         self.valueCache.set(address, data)
         if self.notify:
             self.notify(address, data)
+
+        listeners = self.address_listeners[address]
+        for listener in listeners:
+            listener(address, data)
 
 
 class DataRequestHandler(SocketServer.BaseRequestHandler):
