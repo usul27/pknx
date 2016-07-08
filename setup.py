@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(name='knxip',
-      version='0.2.3',
+      version='0.3.0',
       description='A native Python KNX/IPNet implementation',
       url='http://github.com/usul27/pknx',
       author='Daniel Matuschek',
