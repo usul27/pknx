@@ -466,13 +466,14 @@ class KNXIPTunnel():
         will be called func(address, data).
         There can be multiple listeners for a given address
         """
-        listeners = self.address_listeners[address]
-        if listeners is None:
+        try:
+            listeners = self.address_listeners[address]
+        except KeyError:
             listeners = []
             self.address_listeners[address] = listeners
 
         if not(func in listeners):
-            listeners.add(func)
+            listeners.append(func)
 
         return True
 
