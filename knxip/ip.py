@@ -499,7 +499,11 @@ class KNXIPTunnel():
         if self.notify:
             self.notify(address, data)
 
-        listeners = self.address_listeners[address]
+        try:
+            listeners = self.address_listeners[address]
+        except KeyError:
+            listeners = None
+
         for listener in listeners:
             listener(address, data)
 
