@@ -1,6 +1,10 @@
+"""Conversions between KNX data types and native Python types"""
+
+from datetime import time, date, datetime
 from knxip.core import KNXException
 
-def float_to_knx(floatval):
+
+def float_to_knx2(floatval):
     """Convert a float to a 2 byte KNX float value"""
 
     if floatval < -671088.64 or floatval > 670760.96:
@@ -23,3 +27,101 @@ def float_to_knx(floatval):
     return [(sign << 7) + (i << 3) + (mantisse >> 8),
             mantisse & 0xff]
 
+
+def knx2_to_float(knxdata):
+    """Convert a KNX 2 byte float object to a float"""
+    if len(knxdata) != 2:
+        raise KNXException("Can only convert a 2 Byte object to float")
+
+    data = knxdata[0] * 256 + knxdata[1]
+    sign = data >> 15
+    exponent = (data >> 11) & 0x0f
+    mantisse = float(data & 0x7ff)
+    if sign == 1:
+        mantisse = -2048 + mantisse
+
+    return mantisse * pow(2, exponent) / 100
+
+
+def time_to_knx(timeval, dow=0):
+    """Converts a time and day-of-week to a KNX time object"""
+
+    knxdata = [0, 0, 0]
+    knxdata[0] = ((dow & 0x07) << 5) + timeval.hour
+    knxdata[1] = timeval.minute
+    knxdata[2] = timeval.second
+    return knxdata
+
+
+def knx_to_time(knxdata):
+    """Converts a KNX time to a tuple of a time object and the day of week"""
+
+    if len(knxdata) != 3:
+        raise KNXException("Can only convert a 3 Byte object to time")
+
+    dow = knxdata[0] >> 5
+    res = time(knxdata[0] & 0x1f, knxdata[1], knxdata[2])
+
+    return [res, dow]
+
+
+def date_to_knx(dateval):
+    """Convert a date to a 3 byte KNX data array"""
+
+    if (dateval.year < 1990) or (dateval.year > 2089):
+        raise KNXException("Year has to be between 1990 and 2089")
+
+    if dateval.year < 2000:
+        year = dateval.year - 1900
+    else:
+        year = dateval.year - 2000
+
+    return([dateval.day, dateval.month, year])
+
+
+def knx_to_date(knxdata):
+    """Convert a 3 byte KNX data object to a date"""
+
+    if len(knxdata) != 3:
+        raise KNXException("Can only convert a 3 Byte object to date")
+
+    year = knxdata[2]
+    if year >= 90:
+        year += 1900
+    else:
+        year += 2000
+
+    return date(year, knxdata[1], knxdata[0])
+
+
+def datetime_to_knx(datetimeval):
+    """Convert a Python timestamp to an 8 byte KNX time and date object"""
+
+    # TODO
+    pass
+
+
+def knx_to_datetime(knxdata):
+    """Convert a an 8 byte KNX time and date object to its components"""
+
+    # TODO
+    pass
+
+
+def string_to_knx(str):
+    """Converts a string to its KNX presentation
+
+    This function will truncate the string to a maximum of 14 characters
+    and remove all characters that can't be represented by the KNX character
+    set
+    """
+
+    # TODO
+    pass
+
+
+def knx_to_string(knxdata):
+    """Convert a KNX 14-byte string object to a Python string"""
+
+    # TODO
+    pass
