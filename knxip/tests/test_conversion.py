@@ -5,7 +5,8 @@ Created on Jul 8, 2016
 '''
 import unittest
 from knxip.conversion import float_to_knx2, knx2_to_float, \
-    knx_to_time, time_to_knx, knx_to_date, date_to_knx
+    knx_to_time, time_to_knx, knx_to_date, date_to_knx, datetime_to_knx,\
+    knx_to_datetime
 from datetime import time, date, datetime
 from knxip.core import KNXException
 
@@ -73,6 +74,30 @@ class KNXConversionTest(unittest.TestCase):
                           date_to_knx, date(1989, 1, 1))
         self.assertRaises(KNXException,
                           date_to_knx, date(2100, 10, 30))
+
+    def test_datetime_to_knx(self):
+        # 2016/10/30 was a sunday (7)
+        # 14:55:23
+        # no working day, working day field invalid
+        # time = UTC+x
+        self.assertEqual(datetime_to_knx(datetime(2016, 10, 30, 14, 55, 23)),
+                         [116, 10, 30, 238, 55, 23, 32, 128])
+        # 1901/06/07 was a friday (7)
+        # 01:10:47
+        # no working day, working day field invalid
+        # time = UTC+x
+        self.assertEqual(datetime_to_knx(datetime(1901, 6, 7, 1, 10, 47)),
+                         [1, 6, 7, 161, 10, 47, 97, 128])
+        self.assertEqual(datetime_to_knx(datetime(1901, 6, 7, 1, 10, 47),
+                                         False),
+                         [1, 6, 7, 161, 10, 47, 97, 0])
+
+    def test_knx_to_datetime(self):
+        self.assertEqual(knx_to_datetime([1, 6, 7, 161, 10, 47, 97, 128]),
+                         datetime(1901, 6, 7, 1, 10, 47))
+
+        self.assertEqual(knx_to_datetime([116, 10, 30, 238, 55, 23, 32, 128]),
+                         datetime(2016, 10, 30, 14, 55, 23))
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """Conversions between KNX data types and native Python types"""
 
-from datetime import time, date, datetime
+from datetime import time, date, datetime, timedelta
 from knxip.core import KNXException
 
 
@@ -94,18 +94,58 @@ def knx_to_date(knxdata):
     return date(year, knxdata[1], knxdata[0])
 
 
-def datetime_to_knx(datetimeval):
+def datetime_to_knx(datetimeval, clock_synced_external=1):
     """Convert a Python timestamp to an 8 byte KNX time and date object"""
 
-    # TODO
-    pass
+    res = [0, 0, 0, 0, 0, 0, 0, 0]
+    year = datetimeval.year
+    if ((year < 1900) or (year > 2155)):
+        raise KNXException("Only years between 1900 and 2155 supported")
+    res[0] = year - 1900
+    res[1] = datetimeval.month
+    res[2] = datetimeval.day
+    res[3] = (datetimeval.isoweekday() << 5) + datetimeval.hour
+    res[4] = datetimeval.minute
+    res[5] = datetimeval.second
+    if datetimeval.isoweekday() < 6:
+        is_working_day = 1
+    else:
+        is_working_day = 0
+
+    # DST starts last Sunday in March
+    d = datetime(year, 4, 1)
+    dston = d - timedelta(days=d.weekday() + 1)
+    # ends last Sunday in October
+    d = datetime(year, 11, 1)
+    dstoff = d - timedelta(days=d.weekday() + 1)
+    if dston <= datetimeval.replace(tzinfo=None) < dstoff:
+        dst = 1
+    else:
+        dst = 0
+
+    res[6] = (is_working_day << 6) + (1 << 5) + dst
+    if (clock_synced_external):
+        res[7] = 128
+    else:
+        res[7] = 0
+
+    return res
 
 
 def knx_to_datetime(knxdata):
     """Convert a an 8 byte KNX time and date object to its components"""
 
-    # TODO
-    pass
+    if len(knxdata) != 8:
+        raise KNXException("Can only convert an 8 Byte object to datetime")
+
+    year = knxdata[0] + 1900
+    month = knxdata[1]
+    day = knxdata[2]
+    hour = knxdata[3] & 0x1f
+    minute = knxdata[4]
+    second = knxdata[5]
+
+    return datetime(year, month, day, hour, minute, second)
 
 
 def string_to_knx(str):
