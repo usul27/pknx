@@ -24,6 +24,10 @@ def parse_group_address(addr):
     This allows to convert x/x/x and x/x address syntax to a numeric
     KNX group address
     """
+
+    if addr is None:
+        raise KNXException("No address given")
+
     res = None
 
     if re.match('[0-9]+$', addr):
