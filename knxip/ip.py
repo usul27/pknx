@@ -2,13 +2,12 @@
 """
 import socket
 import threading
-import sys
 import logging
 import queue as queue
 import socketserver as SocketServer
 
 from knxip.core import KNXException, ValueCache, E_NO_ERROR
-from knxip.helper import *
+from knxip.helper import int_to_array, ip_to_array
 from knxip.gatewayscanner import GatewayScanner
 
 
@@ -46,10 +45,7 @@ class KNXIPFrame():
 
     def to_frame(self):
         """Return the frame as an array of bytes."""
-        if sys.version_info[0] < 3:
-            return bytes_to_str(self.header() + self.body)
-        else:
-            return bytearray(self.header() + self.body)
+        return bytearray(self.header() + self.body)
 
     @classmethod
     def from_frame(cls, frame):
@@ -239,6 +235,7 @@ class KNXIPTunnel():
         self.remote_port = port
         self.discovery_port = None
         self.data_port = None
+        self.connected = False
         self.result_queue = queue.Queue()
         self.unack_queue = queue.Queue()
         if valueCache is None:
@@ -250,13 +247,20 @@ class KNXIPTunnel():
         """Make sure an open tunnel connection will be closed"""
         self.disconnect()
 
-    def connect(self):
+    def connect(self, timeout=2):
         """Connect to the KNX/IP tunnelling interface.
 
         If the remote address is "0.0.0.0", it will use the Gateway scanner
         to automatically detect a KNX gateway and it will connect to it if one
         has been found.
+
+        Returns true if a connection could be established, false otherwise
         """
+
+        if self.connected:
+            logging.info("KNXIPTunnel connect request ignored, "
+                         "already connected")
+            return True
 
         if (self.remote_ip == "0.0.0.0"):
             scanner = GatewayScanner()
@@ -266,8 +270,8 @@ class KNXIPTunnel():
                 self.remote_ip = ip
                 self.remote_port = port
             except:
-                raise KNXException("No KNX/IP gateway given and no gateway "
-                                   "found by scanner, aborting")
+                logging.error("No KNX/IP gateway given and no gateway "
+                              "found by scanner, aborting")
 
         # Find my own IP
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -289,6 +293,7 @@ class KNXIPTunnel():
 
         self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.control_socket.bind((local_ip, 0))
+        self.control_socket.settimeout(timeout)
 
         # Connect packet
         p = []
@@ -310,13 +315,14 @@ class KNXIPTunnel():
         #
         p.extend([0x04, 0x04, 0x02, 0x00])
 
-        self.control_socket.sendto(bytes(p),
-                                   (self.remote_ip, self.remote_port))
-
-        # TODO: non-blocking receive
-        received = self.control_socket.recv(1024)
-        if sys.version_info[0] < 3:
-            received = map(ord, received)
+        try:
+            self.control_socket.sendto(bytes(p),
+                                       (self.remote_ip, self.remote_port))
+            received = self.control_socket.recv(1024)
+        except socket.error:
+            self.control_socket = None
+            logging.error("KNX/IP gateway did not responde on connect request")
+            return False
 
         # Check if the response is an TUNNELING ACK
         r_sid = received[2] * 256 + received[3]
@@ -330,16 +336,18 @@ class KNXIPTunnel():
                               "(Channel: {}, HPAI: {} {})".format(
                                   self.channel, self.hpai[0], self.hpai[1]))
             else:
-                logging.debug("KNX IP tunnel connect error:" +
+                logging.error("KNX IP tunnel connect error:" +
                               "(Channel: {}, Status: {})".format(
                                   self.channel, status))
-                raise KNXException("Could not initiate tunnel connection " +
-                                   "status={}".format(status), status)
+                return False
 
         else:
-            raise KNXException(
-                "Could not initiate tunnel connection, STI = {0:x}"
-                .format(r_sid))
+            logging.error("Could not initiate tunnel connection, STI = {0:x}"
+                          .format(r_sid))
+            return False
+
+        self.connected = True
+        return True
 
     def disconnect(self):
         """Disconnect an open tunnel connection"""
@@ -380,6 +388,8 @@ class KNXIPTunnel():
 
         else:
             logging.debug("Disconnect - no connection, nothing to do")
+
+        self.connected = False
 
     def send_tunnelling_request(self, cemi):
         """Send a tunneling request based on the given CEMI data.
