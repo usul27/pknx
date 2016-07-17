@@ -18,6 +18,15 @@ class TestKNXIPTunnel(unittest.TestCase):
         tunnel.connect()
         tunnel.disconnect()
 
+        # Try to connect to a non-existing gateway
+        # Check if the timeout works as expected
+        tunnel = KNXIPTunnel("240.0.0.0")
+        tick = datetime.now()
+        self.assertFalse(tunnel.connect(2))
+        tock = datetime.now()
+        diff = tock - tick    # the result is a datetime.timedelta object
+        self.assertTrue(diff.total_seconds() >= 1 and diff.total_seconds() < 3)
+
     def testReadTimeout(self):
         """Test if read timeouts work and group_read operations
 
