@@ -15,7 +15,7 @@ class TestKNXIPTunnel(unittest.TestCase):
         """Test if the system can connect to an auto-discovered gateway"""
         # Try to connect to an auto-discovered KNX gateway
         tunnel = KNXIPTunnel("0.0.0.0")
-        tunnel.connect()
+        self.assertTrue(tunnel.connect())
         tunnel.disconnect()
 
         # Try to connect to a non-existing gateway
