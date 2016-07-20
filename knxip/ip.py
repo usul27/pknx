@@ -512,7 +512,7 @@ class KNXIPTunnel():
         try:
             listeners = self.address_listeners[address]
         except KeyError:
-            listeners = None
+            listeners = []
 
         for listener in listeners:
             listener(address, data)
