@@ -404,6 +404,7 @@ class KNXIPTunnel():
         from the KNX/IP gateway
         """
         if not self.connected:
+            self.connection_state = -1
             return False
 
         frame = KNXIPFrame(KNXIPFrame.CONNECTIONSTATE_REQUEST)
@@ -428,6 +429,8 @@ class KNXIPTunnel():
             res = False
 
         if not res:
+            if self.connection_state == 0:
+                self.connection_state = -1
             self.disconnect()
             return False
 

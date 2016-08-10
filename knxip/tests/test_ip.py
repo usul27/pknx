@@ -4,6 +4,7 @@ Created on Jul 3, 2016
 @author: matuschd
 '''
 import unittest
+import time
 from datetime import datetime
 
 from knxip.ip import KNXIPTunnel
@@ -33,6 +34,21 @@ class TestKNXIPTunnel(unittest.TestCase):
         self.assertFalse(tunnel.connected)
         tunnel.group_read(1)
         self.assertTrue(tunnel.connected)
+        
+        
+    def testKeepAlive(self):
+        """Test if the background thread runs and updated the state"""
+        tunnel = KNXIPTunnel("0.0.0.0")
+        self.assertTrue(tunnel.connect())
+        # Background thread should reset this to 0 if the connection is still
+        # alive
+        tunnel.connection_state=1
+        time.sleep(66)
+        self.assertEqual(tunnel.connection_state,0)
+        tunnel.disconnect()
+        time.sleep(66)
+        self.assertNotEqual(tunnel.connection_state,0)
+        
 
     def testReadTimeout(self):
         """Test if read timeouts work and group_read operations
