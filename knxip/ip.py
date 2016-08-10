@@ -3,6 +3,7 @@
 import socket
 import threading
 import logging
+import time
 import queue as queue
 import socketserver as SocketServer
 
@@ -45,6 +46,8 @@ class KNXIPFrame():
 
     def to_frame(self):
         """Return the frame as an array of bytes."""
+        logging.error(self.header())
+        logging.error(self.body)
         return bytearray(self.header() + self.body)
 
     @classmethod
@@ -240,14 +243,27 @@ class KNXIPTunnel():
         self.connected = False
         self.result_queue = queue.Queue()
         self.ack_semaphore = threading.Semaphore(0)
+        self.conn_state_ack_semaphore = threading.Semaphore(0)
         if valueCache is None:
             self.value_cache = ValueCache()
         else:
             self.value_cache = valueCache
+        self.connection_state = 0
+        self.keepalive_thread = threading.Thread(target=self.keepalive,
+                                                 args=())
+        self.keepalive_thread.daemon = True
+        self.keepalive_thread.start()
 
     def __del__(self):
         """Make sure an open tunnel connection will be closed"""
         self.disconnect()
+
+    def keepalive(self):
+        """Background method that makes sure the connection is still open."""
+        while True:
+            if self.connected:
+                self.check_connection_state()
+            time.sleep(60)
 
     def connect(self, timeout=2):
         """Connect to the KNX/IP tunnelling interface.
@@ -302,27 +318,26 @@ class KNXIPTunnel():
         self.control_socket.settimeout(timeout)
 
         # Connect packet
-        packet = []
-        packet.extend([0x06, 0x10])  # header size, protocol version
-        packet.extend(int_to_array(KNXIPFrame.CONNECT_REQUEST, 2))
-        packet.extend([0x00, 0x1a])  # total length = 24 octet
+        frame = KNXIPFrame(KNXIPFrame.CONNECT_REQUEST)
 
         # Control endpoint
-        packet.extend([0x08, 0x01])  # length 8 bytes, UPD
+        body = []
+        body.extend([0x08, 0x01])  # length 8 bytes, UPD
         dummy_ip, port = self.control_socket.getsockname()
-        packet.extend(ip_to_array(local_ip))
-        packet.extend(int_to_array(port, 2))
+        body.extend(ip_to_array(local_ip))
+        body.extend(int_to_array(port, 2))
 
         # Data endpoint
-        packet.extend([0x08, 0x01])  # length 8 bytes, UPD
-        packet.extend(ip_to_array(local_ip))
-        packet.extend(int_to_array(self.data_port, 2))
+        body.extend([0x08, 0x01])  # length 8 bytes, UPD
+        body.extend(ip_to_array(local_ip))
+        body.extend(int_to_array(self.data_port, 2))
 
         #
-        packet.extend([0x04, 0x04, 0x02, 0x00])
+        body.extend([0x04, 0x04, 0x02, 0x00])
+        frame.body = body
 
         try:
-            self.control_socket.sendto(bytes(packet),
+            self.control_socket.sendto(bytes(frame.to_frame()),
                                        (self.remote_ip, self.remote_port))
             received = self.control_socket.recv(1024)
         except socket.error:
@@ -353,6 +368,7 @@ class KNXIPTunnel():
             return False
 
         self.connected = True
+
         return True
 
     def disconnect(self):
@@ -360,26 +376,8 @@ class KNXIPTunnel():
         if self.channel:
             logging.debug("Disconnecting KNX/IP tunnel...")
 
-            packet = []
-            # =========== IP Header ==========
-            packet.extend([0x06])  # HeaderSize
-            packet.extend([0x10])  # KNXIP Protocl Version
-            # Service Identifier = Disconnect Request
-            packet.extend([0x02, 0x09])
-            # Headersize +2 + sizeof(HPAI) = 2 (Headersize) + 2
-            # + 8(sizeof(HPAI) = 16 = 0x10 || Need to be 2 Bytes
-            packet.extend([0x00, 0x10])
-
-            # ============ IP Body ==========
-            packet.extend([self.channel])  # Communication Channel Id
-            packet.extend([0x00])  # Reserverd
-            # =========== Client HPAI ===========
-            packet.extend([0x08])  # HPAI Length
-            packet.extend([0x01])  # Host Protocol
-            # Tunnel Client Socket IP
-            packet.extend(ip_to_array(self.control_socket.getsockname()[0]))
-            # Tunnel Client Socket Port
-            packet.extend(int_to_array(self.control_socket.getsockname()[1]))
+            frame = KNXIPFrame(KNXIPFrame.DISCONNECT_REQUEST)
+            frame.body = self.hpai_body()
 
             # TODO: Glaube Sequence erhöhen ist nicht notwendig im Control
             # Tunnel beim Disconnect???
@@ -389,7 +387,7 @@ class KNXIPTunnel():
                 self.seq = 0
 
             self.control_socket.sendto(
-                bytes(packet), (self.remote_ip, self.remote_port))
+                bytes(frame.to_frame()), (self.remote_ip, self.remote_port))
             # TODO: Impelement the Disconnect_Response Handling from Gateway
             # Control Channel > Client Control Channel
 
@@ -397,6 +395,64 @@ class KNXIPTunnel():
             logging.debug("Disconnect - no connection, nothing to do")
 
         self.connected = False
+
+    def check_connection_state(self):
+        """Check the state of the connection using connection state request.
+
+        This sends a CONNECTION_STATE_REQUEST. This method will only return
+        True, if the connection is established and no error code is returned
+        from the KNX/IP gateway
+        """
+        if not self.connected:
+            return False
+
+        frame = KNXIPFrame(KNXIPFrame.CONNECTIONSTATE_REQUEST)
+        frame.body = self.hpai_body()
+
+        # Send maximum 3 connection state requests with a 10 second timeout
+        res = False
+        self.connection_state = 0
+        for dummy in range(0, 3):
+            logging.debug("Send connection state request")
+            self.control_socket.sendto(bytes(frame.to_frame()),
+                                       (self.remote_ip, self.remote_port))
+            res = self.conn_state_ack_semaphore.acquire(blocking=True,
+                                                        timeout=10)
+            if res:
+                break
+
+            logging.info("Timeout waiting for connection state response")
+
+        if self.connection_state != 0:
+            logging.info("Connection state was %s", self.connection_state)
+            res = False
+
+        if not res:
+            self.disconnect()
+            return False
+
+        return True
+
+
+    def hpai_body(self):
+        """ Create a body with HPAI information.
+
+        This is used for disconnect and connection state requests.
+        """
+        body = []
+        # ============ IP Body ==========
+        body.extend([self.channel])  # Communication Channel Id
+        body.extend([0x00])  # Reserverd
+        # =========== Client HPAI ===========
+        body.extend([0x08])  # HPAI Length
+        body.extend([0x01])  # Host Protocol
+        # Tunnel Client Socket IP
+        body.extend(ip_to_array(self.control_socket.getsockname()[0]))
+        # Tunnel Client Socket Port
+        body.extend(int_to_array(self.control_socket.getsockname()[1]))
+
+        return body
+
 
     def send_tunnelling_request(self, cemi, auto_connect=True):
         """Sends a tunneling request based on the given CEMI data.
@@ -595,6 +651,9 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
             tunnel = self.server.tunnel
             tunnel.data_server.shutdown()
             tunnel.data_server = None
+        elif frame.service_type_id == KNXIPFrame.CONNECTIONSTATE_RESPONSE:
+            logging.debug("Connection state response")
+            tunnel.connection_state = frame.body[2]
         else:
             logging.info(
                 "Message type %s not yet implemented", frame.service_type_id)
