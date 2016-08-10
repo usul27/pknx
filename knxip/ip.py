@@ -289,7 +289,6 @@ class KNXIPTunnel():
             self.data_server = DataServer((local_ip, 0),
                                           DataRequestHandler,
                                           self)
-#            self.data_server.tunnel = self
             dummy_ip, self.data_port = self.data_server.server_address
             data_server_thread = threading.Thread(
                 target=self.data_server.serve_forever)
