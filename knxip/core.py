@@ -56,10 +56,9 @@ def parse_group_address(addr):
 class ValueCache(object):
     """A simple caching class based on dictionaries"""
 
-    values = {}
-
     def __init__(self):
         """Initialize an empty cache"""
+        self.value = {}
         pass
 
     def get(self, name):
@@ -74,6 +73,10 @@ class ValueCache(object):
             return True
         else:
             return False
+
+    def clear(self):
+        """Remove all cached entries."""
+        self.values = {}
 
 
 class KNXException(Exception):
