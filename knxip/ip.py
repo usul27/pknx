@@ -191,7 +191,7 @@ class CEMIMessage():
         body = [self.code, 0x00, self.ctl1, self.ctl2,
                 (self.src_addr >> 8) & 0xff, (self.src_addr >> 0) & 0xff,
                 (self.dst_addr >> 8) & 0xff, (self.dst_addr >> 0) & 0xff,
-                ]
+               ]
         if (len(self.data) == 1) and ((self.data[0] & 3) == self.data[0]):
             # less than 6 bit of data, pack into APCI byte
             body.extend([1, (self.tpci_apci >> 8) & 0xff,
@@ -286,8 +286,10 @@ class KNXIPTunnel():
         if self.data_server:
             logging.info("Data server already running, not starting again")
         else:
-            self.data_server = DataServer((local_ip, 0), DataRequestHandler)
-            self.data_server.tunnel = self
+            self.data_server = DataServer((local_ip, 0),
+                                          DataRequestHandler,
+                                          self)
+#            self.data_server.tunnel = self
             dummy_ip, self.data_port = self.data_server.server_address
             data_server_thread = threading.Thread(
                 target=self.data_server.serve_forever)
@@ -550,14 +552,13 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
         data = self.request[0]
         sock = self.request[1]
 
-        f = KNXIPFrame.from_frame(data)
+        frame = KNXIPFrame.from_frame(data)
 
-        if f.service_type_id == KNXIPFrame.TUNNELING_REQUEST:
-            req = KNXTunnelingRequest.from_body(f.body)
+        if frame.service_type_id == KNXIPFrame.TUNNELING_REQUEST:
+            req = KNXTunnelingRequest.from_body(frame.body)
             msg = CEMIMessage.from_body(req.cemi)
             send_ack = False
 
-            # print(msg)
             tunnel = self.server.tunnel
 
             if msg.code == 0x29:
@@ -587,10 +588,10 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
                 ack.body = bodyack
                 sock.sendto(ack.to_frame(), self.client_address)
 
-        elif f.service_type_id == KNXIPFrame.TUNNELLING_ACK:
+        elif frame.service_type_id == KNXIPFrame.TUNNELLING_ACK:
             logging.debug("Received tunneling ACK")
             self.server.tunnel.ack_semaphore.release()
-        elif f.service_type_id == KNXIPFrame.DISCONNECT_RESPONSE:
+        elif frame.service_type_id == KNXIPFrame.DISCONNECT_RESPONSE:
             logging.debug("Disconnected")
             self.channel = None
             tunnel = self.server.tunnel
@@ -598,10 +599,13 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
             tunnel.data_server = None
         else:
             logging.info(
-                "Message type %s not yet implemented", f.service_type_id)
+                "Message type %s not yet implemented", frame.service_type_id)
 
 
 class DataServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
     """Server that handled the UDP connection to the KNX/IP tunnel."""
 
-    pass
+    def __init__(self, server_address, RequestHandlerClass, tunnel):
+        super(DataServer, self).__init__(server_address, RequestHandlerClass)
+        self.tunnel = tunnel
+    
