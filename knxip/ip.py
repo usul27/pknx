@@ -457,7 +457,6 @@ class KNXIPTunnel():
         try:
             res = self.result_queue.get(block=True, timeout=timeout)
         except queue.Empty:
-            # TODO: cleanup
             return None
 
         self.result_queue.task_done()
