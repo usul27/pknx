@@ -59,7 +59,6 @@ class ValueCache(object):
     def __init__(self):
         """Initialize an empty cache"""
         self.values = {}
-        pass
 
     def get(self, name):
         """Get a value for the given name from cache"""
@@ -108,8 +107,10 @@ class KNXException(Exception):
         return super().__str__() + " " + msg.get(self.errorcode,
                                                  "unknown error code")
 
-
+#pylint: disable=too-many-instance-attributes
+#pylint: disable=invalid-name
 class KNXMessage(object):
+    """This represents a message on the KNX bus."""
 
     repeat = 0
     priority = 3   # (0 = system, 1 - alarm, 2 - high, 3 - normal)
@@ -122,9 +123,11 @@ class KNXMessage(object):
     multicast = 1
 
     def __init__(self):
+        """Initialize an empty KNX message"""
         pass
 
     def sanitize(self):
+        """Sanitize all fields of the KNX message."""
         self.repeat = self.repeat % 2
         self.priority = self.priority % 4
         self.src_addr = self.src_addr % 0x10000
@@ -136,6 +139,7 @@ class KNXMessage(object):
             self.data[i] = self.data[i] % 0x100
 
     def to_frame(self):
+        """Convert the object to its frame format."""
         self.sanitize()
         res = []
         res.append((1 << 7) + (1 << 4) + (self.repeat << 5) +
@@ -159,7 +163,8 @@ class KNXMessage(object):
 
     @classmethod
     def from_frame(cls, frame):
-        m = cls()
+        """Create a KNXMessage object from the frame format."""
+        message = cls()
 
         # Check checksum first
         checksum = 0
@@ -172,17 +177,17 @@ class KNXMessage(object):
                                .format(tohex(frame), frame[len(frame) - 1],
                                        checksum % 0x100))
 
-        m.repeat = (frame[0] >> 5) & 0x01
-        m.priority = (frame[0] >> 2) & 0x03
-        m.src_addr = (frame[1] << 8) + frame[2]
-        m.dst_addr = (frame[3] << 8) + frame[4]
-        m.multicast = (frame[5] >> 7)
-        m.routing = (frame[5] >> 4) & 0x03
-        m.length = frame[5] & 0x0f
-        m.data = frame[6:-1]
+        message.repeat = (frame[0] >> 5) & 0x01
+        message.priority = (frame[0] >> 2) & 0x03
+        message.src_addr = (frame[1] << 8) + frame[2]
+        message.dst_addr = (frame[3] << 8) + frame[4]
+        message.multicast = (frame[5] >> 7)
+        message.routing = (frame[5] >> 4) & 0x03
+        message.length = frame[5] & 0x0f
+        message.data = frame[6:-1]
 
-        if len(m.data) + 1 != m.length:
+        if len(message.data) + 1 != message.length:
             raise KNXException(
                 'Frame {} has not the correct length'.format(tohex(frame)))
 
-        return m
+        return message
