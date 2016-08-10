@@ -58,7 +58,7 @@ class ValueCache(object):
 
     def __init__(self):
         """Initialize an empty cache"""
-        self.value = {}
+        self.values = {}
         pass
 
     def get(self, name):
