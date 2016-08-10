@@ -27,6 +27,13 @@ class TestKNXIPTunnel(unittest.TestCase):
         diff = tock - tick    # the result is a datetime.timedelta object
         self.assertTrue(diff.total_seconds() >= 1 and diff.total_seconds() < 3)
 
+    def testAutoConnect(self):
+        """Test if the KNX tunnel will be automatically connected."""
+        tunnel = KNXIPTunnel("0.0.0.0")
+        self.assertFalse(tunnel.connected)
+        tunnel.group_read(1)
+        self.assertTrue(tunnel.connected)
+
     def testReadTimeout(self):
         """Test if read timeouts work and group_read operations
 
@@ -65,11 +72,12 @@ class TestKNXIPTunnel(unittest.TestCase):
             tunnel.disconnect()
 
     def testListeners(self):
-        received = None
+        """Test if listeners can be registered and unregistered."""
+        _received = None
 
         def message_received(address, data):
-            nonlocal received
-            received = data
+            nonlocal _received
+            _received = data
             pass
 
         tunnel = KNXIPTunnel("0.0.0.0")
