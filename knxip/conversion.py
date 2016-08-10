@@ -12,6 +12,7 @@ def float_to_knx2(floatval):
 
     floatval = floatval * 100
 
+    i = 0
     for i in range(0, 15):
         exp = pow(2, i)
         if ((floatval / exp) >= -2048) and ((floatval / exp) < 2047):
@@ -99,7 +100,7 @@ def datetime_to_knx(datetimeval, clock_synced_external=1):
 
     res = [0, 0, 0, 0, 0, 0, 0, 0]
     year = datetimeval.year
-    if ((year < 1900) or (year > 2155)):
+    if (year < 1900) or (year > 2155):
         raise KNXException("Only years between 1900 and 2155 supported")
     res[0] = year - 1900
     res[1] = datetimeval.month
@@ -113,18 +114,18 @@ def datetime_to_knx(datetimeval, clock_synced_external=1):
         is_working_day = 0
 
     # DST starts last Sunday in March
-    d = datetime(year, 4, 1)
-    dston = d - timedelta(days=d.weekday() + 1)
+    date1 = datetime(year, 4, 1)
+    dston = date1 - timedelta(days=date1.weekday() + 1)
     # ends last Sunday in October
-    d = datetime(year, 11, 1)
-    dstoff = d - timedelta(days=d.weekday() + 1)
+    date2 = datetime(year, 11, 1)
+    dstoff = date2 - timedelta(days=date2.weekday() + 1)
     if dston <= datetimeval.replace(tzinfo=None) < dstoff:
         dst = 1
     else:
         dst = 0
 
     res[6] = (is_working_day << 6) + (1 << 5) + dst
-    if (clock_synced_external):
+    if clock_synced_external:
         res[7] = 128
     else:
         res[7] = 0
@@ -147,21 +148,3 @@ def knx_to_datetime(knxdata):
 
     return datetime(year, month, day, hour, minute, second)
 
-
-def string_to_knx(str):
-    """Converts a string to its KNX presentation
-
-    This function will truncate the string to a maximum of 14 characters
-    and remove all characters that can't be represented by the KNX character
-    set
-    """
-
-    # TODO
-    pass
-
-
-def knx_to_string(knxdata):
-    """Convert a KNX 14-byte string object to a Python string"""
-
-    # TODO
-    pass
