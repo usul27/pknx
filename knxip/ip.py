@@ -491,9 +491,10 @@ class KNXIPTunnel():
 
             res = self.ack_semaphore.acquire(blocking=True, timeout=1)
 
-        # disconnect of not acknowledged
+        # disconnect and reconnect of not acknowledged
         if not res:
             self.disconnect()
+            self.connect()
 
         return res
 
