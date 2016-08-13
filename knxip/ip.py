@@ -44,7 +44,6 @@ class KNXIPFrame():
     E_CONNECTION_ID = 0x21
     E_KNX_CONNECTION = 0x27
 
-
     # Generic Response Status Code
     E_NO_ERROR = 0x0
 
@@ -427,7 +426,7 @@ class KNXIPTunnel():
         res = False
         self.connection_state = 0
 
-        maximum_retry=3
+        maximum_retry = 3
         for retry_counter in range(0, maximum_retry):
             logging.debug("Heartbeat: Send connection state request")
 
@@ -482,7 +481,6 @@ class KNXIPTunnel():
 
         return True
 
-
     def hpai_body(self):
         """ Create a body with HPAI information.
 
@@ -501,7 +499,6 @@ class KNXIPTunnel():
         body.extend(int_to_array(self.control_socket.getsockname()[1]))
 
         return body
-
 
     def send_tunnelling_request(self, cemi, auto_connect=True):
         """Sends a tunneling request based on the given CEMI data.
