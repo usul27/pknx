@@ -44,11 +44,7 @@ class TestKNXIPTunnel(unittest.TestCase):
         # alive
         tunnel.connection_state=1
         time.sleep(66)
-        self.assertEqual(tunnel.connection_state,0)
-        tunnel.disconnect()
-        time.sleep(66)
-        self.assertNotEqual(tunnel.connection_state,0)
-        
+        self.assertEqual(tunnel.connection_state,0)        
 
     def testReadTimeout(self):
         """Test if read timeouts work and group_read operations
@@ -89,11 +85,8 @@ class TestKNXIPTunnel(unittest.TestCase):
 
     def testListeners(self):
         """Test if listeners can be registered and unregistered."""
-        _received = None
 
         def message_received(address, data):
-            nonlocal _received
-            _received = data
             pass
 
         tunnel = KNXIPTunnel("0.0.0.0")

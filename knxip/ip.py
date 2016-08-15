@@ -55,11 +55,6 @@ class KNXIPFrame():
 
     def to_frame(self):
         """Return the frame as an array of bytes."""
-
-        """ Debugging
-        logging.error(self.header())
-        logging.error(self.body)
-        """
         return bytearray(self.header() + self.body)
 
     @classmethod
@@ -431,9 +426,10 @@ class KNXIPTunnel():
             logging.debug("Heartbeat: Send connection state request")
 
             # Suggestion:
-            # Carve the Control Socket out of the KNXIPTunnel Class and Public only the Send and Receive
-            # function and Implement in there the Heartbeat so we can block when other Functions want to send
-
+            # Carve the Control Socket out of the KNXIPTunnel
+            # Class and Public only the Send and Receive
+            # function and Implement in there the Heartbeat so we
+            # can block when other Functions want to send
             self.control_socket.settimeout(10)  # Kind of a quirks
             self.control_socket.sendto(bytes(frame.to_frame()),
                                        (self.remote_ip, self.remote_port))
@@ -456,21 +452,25 @@ class KNXIPTunnel():
                     break
                 if frame.body[1] == KNXIPFrame.E_CONNECTION_ID:
                     logging.error(
-                        "Heartbeat: Response No active connection found for Channel:%d ", self.channel
+                        "Heartbeat: Response No active "\
+                        "connection found for Channel:%d ", self.channel
                     )
                 if frame.body[1] == KNXIPFrame.E_DATA_CONNECTION:
                     logging.error(
-                        "Heartbeat: Response Data Connection Error Response for  Channel:%d ", self.channel
+                        "Heartbeat: Response Data Connection Error Response "\
+                        "for  Channel:%d ", self.channel
                     )
                 if frame.body[1] == KNXIPFrame.E_DATA_CONNECTION:
                     logging.error(
-                        "Heartbeat: Response KNX Sub Network Error Response for  Channel:%d ", self.channel
+                        "Heartbeat: Response KNX Sub Network Error Response "\
+                        "for  Channel:%d ", self.channel
                     )
             else:
                 logging.error("Heartbeat: Invalid Response!")
 
         if self.connection_state != 0:
-            logging.info("Heartbeat: Connection state was %s", self.connection_state)
+            logging.info("Heartbeat: Connection state was %s",
+                         self.connection_state)
             res = False
 
         if not res:
