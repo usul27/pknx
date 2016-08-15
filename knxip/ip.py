@@ -38,6 +38,15 @@ class KNXIPFrame():
     REMCONF_CONNECTION = 0x07
     OBJSVR_CONNECTION = 0x08
 
+    # CONNECTIONSTATE_RESPONSE Status Codes
+    # 3.8.2 - 7.8.4
+    E_DATA_CONNECTION = 0x26
+    E_CONNECTION_ID = 0x21
+    E_KNX_CONNECTION = 0x27
+
+    # Generic Response Status Code
+    E_NO_ERROR = 0x0
+
     body = None
 
     def __init__(self, service_type_id):
@@ -46,8 +55,11 @@ class KNXIPFrame():
 
     def to_frame(self):
         """Return the frame as an array of bytes."""
+
+        """ Debugging
         logging.error(self.header())
         logging.error(self.body)
+        """
         return bytearray(self.header() + self.body)
 
     @classmethod
@@ -413,19 +425,52 @@ class KNXIPTunnel():
         # Send maximum 3 connection state requests with a 10 second timeout
         res = False
         self.connection_state = 0
-        for dummy in range(0, 3):
-            logging.debug("Send connection state request")
+
+        maximum_retry = 3
+        for retry_counter in range(0, maximum_retry):
+            logging.debug("Heartbeat: Send connection state request")
+
+            # Suggestion:
+            # Carve the Control Socket out of the KNXIPTunnel Class and Public only the Send and Receive
+            # function and Implement in there the Heartbeat so we can block when other Functions want to send
+
+            self.control_socket.settimeout(10)  # Kind of a quirks
             self.control_socket.sendto(bytes(frame.to_frame()),
                                        (self.remote_ip, self.remote_port))
-            res = self.conn_state_ack_semaphore.acquire(blocking=True,
-                                                        timeout=10)
-            if res:
+
+            try:
+                self.control_socket.sendto(bytes(frame.to_frame()),
+                                           (self.remote_ip, self.remote_port))
+                receive = self.control_socket.recv(1024)
+
+            except socket.timeout:
+                logging.info("Heartbeat: No response, Retry Counter %d/%d",
+                             retry_counter, maximum_retry)
                 break
 
-            logging.info("Timeout waiting for connection state response")
+            frame = KNXIPFrame.from_frame(receive)
+            if frame.service_type_id == KNXIPFrame.CONNECTIONSTATE_RESPONSE:
+                if frame.body[1] == KNXIPFrame.E_NO_ERROR:
+                    logging.debug("Heartbeat: Successful")
+                    res = True
+                    break
+                if frame.body[1] == KNXIPFrame.E_CONNECTION_ID:
+                    logging.error(
+                        "Heartbeat: Response No active connection found for Channel:%d ", self.channel
+                    )
+                if frame.body[1] == KNXIPFrame.E_DATA_CONNECTION:
+                    logging.error(
+                        "Heartbeat: Response Data Connection Error Response for  Channel:%d ", self.channel
+                    )
+                if frame.body[1] == KNXIPFrame.E_DATA_CONNECTION:
+                    logging.error(
+                        "Heartbeat: Response KNX Sub Network Error Response for  Channel:%d ", self.channel
+                    )
+            else:
+                logging.error("Heartbeat: Invalid Response!")
 
         if self.connection_state != 0:
-            logging.info("Connection state was %s", self.connection_state)
+            logging.info("Heartbeat: Connection state was %s", self.connection_state)
             res = False
 
         if not res:
@@ -435,7 +480,6 @@ class KNXIPTunnel():
             return False
 
         return True
-
 
     def hpai_body(self):
         """ Create a body with HPAI information.
@@ -455,7 +499,6 @@ class KNXIPTunnel():
         body.extend(int_to_array(self.control_socket.getsockname()[1]))
 
         return body
-
 
     def send_tunnelling_request(self, cemi, auto_connect=True):
         """Sends a tunneling request based on the given CEMI data.
