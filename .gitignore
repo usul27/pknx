@@ -61,6 +61,9 @@ target/
 #Ipython Notebook
 .ipynb_checkpoints
 
+#PyCharm
+.idea/
+
 .DS_Store
 .project
 .pydevproject
