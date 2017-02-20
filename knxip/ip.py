@@ -119,6 +119,7 @@ class CEMIMessage():
     tpci_apci = 0
     mpdu_len = 0
     data = [0]
+    dptsize = 0
 
     def __init__(self):
         """Initialize object."""
@@ -178,13 +179,14 @@ class CEMIMessage():
         self.src_addr = 0
         self.dst_addr = dst_addr
 
-    def init_group_write(self, dst_addr=1, data=None):
+    def init_group_write(self, dst_addr=1, data=None, dptsize=0):
         """Initialize the CEMI frame for a group write operation."""
         self.init_group(dst_addr)
 
         # unnumbered data packet, group write
         self.tpci_apci = 0x00 * 256 + 0x80
 
+        self.dptsize = dptsize
         if data is None:
             self.data = [0]
         else:
@@ -202,7 +204,7 @@ class CEMIMessage():
                 (self.src_addr >> 8) & 0xff, (self.src_addr >> 0) & 0xff,
                 (self.dst_addr >> 8) & 0xff, (self.dst_addr >> 0) & 0xff,
                ]
-        if (len(self.data) == 1) and ((self.data[0] & 3) == self.data[0]):
+        if self.dptsize==0 and (len(self.data) == 1) and ((self.data[0] & 3) == self.data[0]):
             # less than 6 bit of data, pack into APCI byte
             body.extend([1, (self.tpci_apci >> 8) & 0xff,
                          ((self.tpci_apci >> 0) & 0xff) + self.data[0]])
@@ -564,14 +566,14 @@ class KNXIPTunnel():
         self.result_queue.task_done()
         return res
 
-    def group_write(self, addr, data):
+    def group_write(self, addr, data, dptsize=0):
         """Send a group write to the given address.
 
         The method does not check if the address exists and the write request
         is valid.
         """
         cemi = CEMIMessage()
-        cemi.init_group_write(addr, data)
+        cemi.init_group_write(addr, data, dptsize)
         self.send_tunnelling_request(cemi)
 
     def group_toggle(self, addr, use_cache=True):
