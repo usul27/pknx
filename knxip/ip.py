@@ -204,7 +204,7 @@ class CEMIMessage():
                 (self.src_addr >> 8) & 0xff, (self.src_addr >> 0) & 0xff,
                 (self.dst_addr >> 8) & 0xff, (self.dst_addr >> 0) & 0xff,
                ]
-        if self.dptsize==0 and (len(self.data) == 1) and ((self.data[0] & 3) == self.data[0]):
+        if self.dptsize==0 and (len(self.data) == 1) and ((self.data[0] & 0xC0) == 0):
             # less than 6 bit of data, pack into APCI byte
             body.extend([1, (self.tpci_apci >> 8) & 0xff,
                          ((self.tpci_apci >> 0) & 0xff) + self.data[0]])
