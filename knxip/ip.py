@@ -382,7 +382,7 @@ class KNXIPTunnel():
 
     def disconnect(self):
         """Disconnect an open tunnel connection"""
-        if self.channel:
+        if self.connected and self.channel:
             logging.debug("Disconnecting KNX/IP tunnel...")
 
             frame = KNXIPFrame(KNXIPFrame.DISCONNECT_REQUEST)
