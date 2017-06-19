@@ -403,6 +403,7 @@ class KNXIPTunnel():
         else:
             logging.debug("Disconnect - no connection, nothing to do")
 
+        self.channel = None
         self.connected = False
 
     def check_connection_state(self):
