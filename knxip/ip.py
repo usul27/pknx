@@ -508,7 +508,7 @@ class KNXIPTunnel():
 
         This method does not wait for an acknowledge or result frame.
         """
-        if self.data_server is None:
+        if not self.connected:
             if auto_connect:
                 self.connect()
             else:
