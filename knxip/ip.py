@@ -510,7 +510,8 @@ class KNXIPTunnel():
         """
         if not self.connected:
             if auto_connect:
-                self.connect()
+                if not self.connect():
+                    raise KNXException("KNX tunnel not reconnected")
             else:
                 raise KNXException("KNX tunnel not connected")
 
