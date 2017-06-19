@@ -347,6 +347,7 @@ class KNXIPTunnel():
                                        (self.remote_ip, self.remote_port))
             received = self.control_socket.recv(1024)
         except socket.error:
+            self.control_socket.close()
             self.control_socket = None
             logging.error("KNX/IP gateway did not respond to connect request")
             return False
