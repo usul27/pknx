@@ -37,7 +37,7 @@ def parse_group_address(addr):
     if match:
         main = match.group(1)
         sub = match.group(2)
-        res = int(main) * 256 + int(sub)
+        res = int(main) * 2048 + int(sub)
 
     match = re.match("([0-9]+)/([0-9]+)/([0-9]+)$", addr)
     if match:
