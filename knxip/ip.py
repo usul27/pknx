@@ -303,11 +303,10 @@ class KNXIPTunnel():
         # Clean up cache
         self.value_cache.clear()
 
-        # Setup control socket
-        self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.control_socket.connect((self.remote_ip, self.remote_port))
-        self.control_socket.settimeout(timeout)
-        local_ip = self.control_socket.getsockname()
+        # Find my own IP
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.connect((self.remote_ip, self.remote_port))
+        local_ip = sock.getsockname()[0]
 
         if self.data_server:
             logging.info("Data server already running, not starting again")
@@ -322,6 +321,10 @@ class KNXIPTunnel():
             data_server_thread.start()
             logging.debug(
                 "Started data server on UDP port %s", self.data_port)
+
+        self.control_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.control_socket.bind((local_ip, 0))
+        self.control_socket.settimeout(timeout)
 
         # Connect packet
         frame = KNXIPFrame(KNXIPFrame.CONNECT_REQUEST)
@@ -347,7 +350,6 @@ class KNXIPTunnel():
                                        (self.remote_ip, self.remote_port))
             received = self.control_socket.recv(1024)
         except socket.error:
-            self.control_socket.close()
             self.control_socket = None
             logging.error("KNX/IP gateway did not respond to connect request")
             return False
@@ -380,7 +382,7 @@ class KNXIPTunnel():
 
     def disconnect(self):
         """Disconnect an open tunnel connection"""
-        if self.connected and self.channel:
+        if self.channel:
             logging.debug("Disconnecting KNX/IP tunnel...")
 
             frame = KNXIPFrame(KNXIPFrame.DISCONNECT_REQUEST)
@@ -401,7 +403,6 @@ class KNXIPTunnel():
         else:
             logging.debug("Disconnect - no connection, nothing to do")
 
-        self.channel = None
         self.connected = False
 
     def check_connection_state(self):
@@ -506,10 +507,9 @@ class KNXIPTunnel():
 
         This method does not wait for an acknowledge or result frame.
         """
-        if not self.connected:
+        if self.data_server is None:
             if auto_connect:
-                if not self.connect():
-                    raise KNXException("KNX tunnel not reconnected")
+                self.connect()
             else:
                 raise KNXException("KNX tunnel not connected")
 
