@@ -203,8 +203,8 @@ class CEMIMessage():
         body = [self.code, 0x00, self.ctl1, self.ctl2,
                 (self.src_addr >> 8) & 0xff, (self.src_addr >> 0) & 0xff,
                 (self.dst_addr >> 8) & 0xff, (self.dst_addr >> 0) & 0xff,
-               ]
-        if self.dptsize==0 and (len(self.data) == 1) and ((self.data[0] & 0xC0) == 0):
+                ]
+        if self.dptsize == 0 and (len(self.data) == 1) and ((self.data[0] & 0xC0) == 0):
             # less than 6 bit of data, pack into APCI byte
             body.extend([1, (self.tpci_apci >> 8) & 0xff,
                          ((self.tpci_apci >> 0) & 0xff) + self.data[0]])
@@ -240,7 +240,7 @@ class KNXIPTunnel():
     notify = None
     address_listeners = {}
 
-    def __init__(self, ip, port=3671, valueCache=None):
+    def __init__(self, ip="0.0.0.0", port=3671, valueCache=None):
         """Initialize the connection to the given host/port
 
         Initialized the connection, but does not connect.
@@ -386,7 +386,7 @@ class KNXIPTunnel():
             frame = KNXIPFrame(KNXIPFrame.DISCONNECT_REQUEST)
             frame.body = self.hpai_body()
 
-            # TODO: Glaube Sequence erhöhen ist nicht notwendig im Control
+            # TODO: Glaube Sequence erhoehen ist nicht notwendig im Control
             # Tunnel beim Disconnect???
             if self.seq < 0xff:
                 self.seq += 1
@@ -453,17 +453,17 @@ class KNXIPTunnel():
                     break
                 if frame.body[1] == KNXIPFrame.E_CONNECTION_ID:
                     logging.error(
-                        "Heartbeat: Response No active "\
+                        "Heartbeat: Response No active "
                         "connection found for Channel:%d ", self.channel
                     )
                 if frame.body[1] == KNXIPFrame.E_DATA_CONNECTION:
                     logging.error(
-                        "Heartbeat: Response Data Connection Error Response "\
+                        "Heartbeat: Response Data Connection Error Response "
                         "for  Channel:%d ", self.channel
                     )
                 if frame.body[1] == KNXIPFrame.E_DATA_CONNECTION:
                     logging.error(
-                        "Heartbeat: Response KNX Sub Network Error Response "\
+                        "Heartbeat: Response KNX Sub Network Error Response "
                         "for  Channel:%d ", self.channel
                     )
             else:
@@ -714,4 +714,3 @@ class DataServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
     def __init__(self, server_address, RequestHandlerClass, tunnel):
         super(DataServer, self).__init__(server_address, RequestHandlerClass)
         self.tunnel = tunnel
-    
