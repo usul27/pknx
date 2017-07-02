@@ -8,12 +8,16 @@ from time import sleep
 import datetime
 
 from knxip.core import parse_group_address
-from knxip.ip import KNXIPTunnel
 from knxip.conversion import *
 from time import sleep
 
 
 class KNXDateTimeUpdater():
+    """ 
+    Class that implements a background thread to update time and date. 
+    
+    This will send regularly time and date messages to the KNX bus. 
+    """
 
     def __init__(self, knxiptunnel,
                  dateaddr=None,
@@ -23,6 +27,7 @@ class KNXDateTimeUpdater():
                  lat=45,
                  long=0,
                  updateinterval=60):
+        """ Initialize the updater. """
 
         self.tunnel = knxiptunnel
         self.dateaddr = dateaddr
@@ -53,6 +58,7 @@ class KNXDateTimeUpdater():
         self.updater_running = False
 
     def send_updates(self):
+        """ Send updated to the KNX bus. """
         d = datetime.now()
         if self.timeaddr:
             self.tunnel.group_write(self.timeaddr,
@@ -68,19 +74,21 @@ class KNXDateTimeUpdater():
 
         if self.daynightaddr:
             from pysolar.solar import get_altitude
-            alt = get_altitude(lat, long, d)
+            alt = get_altitude(self.lat, self.long, d)
             if alt > 0:
                 self.tunnel.group_write(self.daynightaddr, 1)
             else:
                 self.tunnel.group_write(self.daynightaddr, 0)
 
     def updater_loop(self):
+        """ Main loop that should run in the background. """
         self.updater_running = True
         while (self.updater_running):
             self.send_updates()
             sleep(self.updateinterval)
 
     def run_updater_in_background(self):
+        """ Starts a thread that runs the updater in the background. """
         thread = threading.Thread(target=self.updater_loop())
         thread.daemon = True
         thread.start()

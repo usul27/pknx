@@ -202,8 +202,7 @@ class CEMIMessage():
         """Convert the CEMI frame object to its byte representation."""
         body = [self.code, 0x00, self.ctl1, self.ctl2,
                 (self.src_addr >> 8) & 0xff, (self.src_addr >> 0) & 0xff,
-                (self.dst_addr >> 8) & 0xff, (self.dst_addr >> 0) & 0xff,
-                ]
+                (self.dst_addr >> 8) & 0xff, (self.dst_addr >> 0) & 0xff]
         if self.dptsize == 0 and (len(self.data) == 1) and ((self.data[0] & 0xC0) == 0):
             # less than 6 bit of data, pack into APCI byte
             body.extend([1, (self.tpci_apci >> 8) & 0xff,
