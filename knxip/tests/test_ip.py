@@ -5,9 +5,16 @@ Created on Jul 3, 2016
 '''
 import unittest
 import time
+import os
 from datetime import datetime
 
 from knxip.ip import KNXIPTunnel
+
+# If a KNX gateway IP is set in the environment, use this
+gwip = os.environ.get('GWIP')
+if gwip is None:
+    gwip = "0.0.0.0"
+print("Using KNX Gateway IP ",gwip)
 
 
 class TestKNXIPTunnel(unittest.TestCase):
@@ -15,7 +22,7 @@ class TestKNXIPTunnel(unittest.TestCase):
     def testConnect(self):
         """Test if the system can connect to an auto-discovered gateway"""
         # Try to connect to an auto-discovered KNX gateway
-        tunnel = KNXIPTunnel("0.0.0.0")
+        tunnel = KNXIPTunnel(gwip)
         self.assertTrue(tunnel.connect())
         tunnel.disconnect()
 
@@ -30,7 +37,7 @@ class TestKNXIPTunnel(unittest.TestCase):
 
     def testAutoConnect(self):
         """Test if the KNX tunnel will be automatically connected."""
-        tunnel = KNXIPTunnel("0.0.0.0")
+        tunnel = KNXIPTunnel(gwip)
         self.assertFalse(tunnel.connected)
         tunnel.group_read(1)
         self.assertTrue(tunnel.connected)
@@ -38,7 +45,7 @@ class TestKNXIPTunnel(unittest.TestCase):
         
     def testKeepAlive(self):
         """Test if the background thread runs and updated the state"""
-        tunnel = KNXIPTunnel("0.0.0.0")
+        tunnel = KNXIPTunnel(gwip)
         self.assertTrue(tunnel.connect())
         # Background thread should reset this to 0 if the connection is still
         # alive
@@ -51,7 +58,7 @@ class TestKNXIPTunnel(unittest.TestCase):
 
         group_read operations should never block
         """
-        tunnel = KNXIPTunnel("0.0.0.0")
+        tunnel = KNXIPTunnel(gwip)
         tunnel.connect()
 
         # Read from some random address and hope nothing responds here
@@ -79,7 +86,7 @@ class TestKNXIPTunnel(unittest.TestCase):
         """
         for _i in range(0, 10):
             # Try to connect to an auto-discovered KNX gateway
-            tunnel = KNXIPTunnel("0.0.0.0")
+            tunnel = KNXIPTunnel(gwip)
             tunnel.connect()
             tunnel.disconnect()
 
@@ -89,7 +96,7 @@ class TestKNXIPTunnel(unittest.TestCase):
         def message_received(address, data):
             pass
 
-        tunnel = KNXIPTunnel("0.0.0.0")
+        tunnel = KNXIPTunnel(gwip)
         tunnel.register_listener(0, message_received)
         res = tunnel.unregister_listener(0, message_received)
         assert(res)
