@@ -350,6 +350,7 @@ class KNXIPTunnel():
                                        (self.remote_ip, self.remote_port))
             received = self.control_socket.recv(1024)
         except socket.error:
+            self.control_socket.close()
             self.control_socket = None
             logging.error("KNX/IP gateway did not respond to connect request")
             return False
@@ -382,7 +383,7 @@ class KNXIPTunnel():
 
     def disconnect(self):
         """Disconnect an open tunnel connection"""
-        if self.channel:
+        if self.connected and self.channel:
             logging.debug("Disconnecting KNX/IP tunnel...")
 
             frame = KNXIPFrame(KNXIPFrame.DISCONNECT_REQUEST)
@@ -403,6 +404,7 @@ class KNXIPTunnel():
         else:
             logging.debug("Disconnect - no connection, nothing to do")
 
+        self.channel = None
         self.connected = False
 
     def check_connection_state(self):
@@ -507,9 +509,10 @@ class KNXIPTunnel():
 
         This method does not wait for an acknowledge or result frame.
         """
-        if self.data_server is None:
+        if not self.connected:
             if auto_connect:
-                self.connect()
+                if not self.connect():
+                    raise KNXException("KNX tunnel not reconnected")
             else:
                 raise KNXException("KNX tunnel not connected")
 
