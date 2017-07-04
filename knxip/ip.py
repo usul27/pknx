@@ -261,6 +261,7 @@ class KNXIPTunnel():
                                                  args=())
         self.keepalive_thread.daemon = True
         self.keepalive_thread.start()
+        self._lock = threading.Lock()
 
     def __del__(self):
         """Make sure an open tunnel connection will be closed"""
@@ -556,17 +557,19 @@ class KNXIPTunnel():
 
         cemi = CEMIMessage()
         cemi.init_group_read(addr)
-        # There might be old messages in the result quue, remove them
-        self.result_queue.queue.clear()
-        self.send_tunnelling_request(cemi)
-        # Wait for the result
-        try:
-            res = self.result_queue.get(block=True, timeout=timeout)
-        except queue.Empty:
-            return None
 
-        self.result_queue.task_done()
-        return res
+        with self._lock:
+            # There might be old messages in the result quue, remove them
+            self.result_queue.queue.clear()
+            self.send_tunnelling_request(cemi)
+            # Wait for the result
+            try:
+                res = self.result_queue.get(block=True, timeout=timeout)
+            except queue.Empty:
+                return None
+
+            self.result_queue.task_done()
+            return res
 
     def group_write(self, addr, data, dptsize=0):
         """Send a group write to the given address.
@@ -576,7 +579,9 @@ class KNXIPTunnel():
         """
         cemi = CEMIMessage()
         cemi.init_group_write(addr, data, dptsize)
-        self.send_tunnelling_request(cemi)
+
+        with self._lock:
+            self.send_tunnelling_request(cemi)
 
     def group_toggle(self, addr, use_cache=True):
         """Toggle the value of an 1-bit group address.
