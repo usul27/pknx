@@ -1,0 +1,3 @@
+0.5:
+ - serialised all KNX requests to make sure the class is thread-safe
+ - added delay between write requests to make sure they are sent to the bus correctly
