@@ -262,6 +262,7 @@ class KNXIPTunnel():
         self.keepalive_thread.daemon = True
         self.keepalive_thread.start()
         self._lock = threading.Lock()
+        self._write_delay = 0.05
 
     def __del__(self):
         """Make sure an open tunnel connection will be closed"""
@@ -582,6 +583,9 @@ class KNXIPTunnel():
 
         with self._lock:
             self.send_tunnelling_request(cemi)
+            # Workaround for lost KNX packets
+            if self._write_delay: 
+                time.sleep(self._write_delay)
 
     def group_toggle(self, addr, use_cache=True):
         """Toggle the value of an 1-bit group address.
