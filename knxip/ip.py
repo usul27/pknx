@@ -4,8 +4,14 @@ import socket
 import threading
 import logging
 import time
-import queue as queue
-import socketserver as SocketServer
+try:
+    import queue
+except ImportError:
+    import Queue as queue
+try:
+    import socketserver as SocketServer
+except ImportError:
+    import SocketServer
 
 from knxip.core import KNXException, ValueCache, E_NO_ERROR
 from knxip.helper import int_to_array, ip_to_array
@@ -250,8 +256,8 @@ class KNXIPTunnel():
         self.data_port = None
         self.connected = False
         self.result_queue = queue.Queue()
-        self.ack_semaphore = threading.Semaphore(0)
-        self.conn_state_ack_semaphore = threading.Semaphore(0)
+        self.ack_queue = queue.Queue()
+        #self.conn_state_ack_semaphore = threading.Semaphore(0)
         if valueCache is None:
             self.value_cache = ValueCache()
         else:
@@ -349,7 +355,7 @@ class KNXIPTunnel():
         try:
             self.control_socket.sendto(bytes(frame.to_frame()),
                                        (self.remote_ip, self.remote_port))
-            received = self.control_socket.recv(1024)
+            received = bytearray(self.control_socket.recv(1024))
         except socket.error:
             self.control_socket.close()
             self.control_socket = None
@@ -442,7 +448,7 @@ class KNXIPTunnel():
             try:
                 self.control_socket.sendto(bytes(frame.to_frame()),
                                            (self.remote_ip, self.remote_port))
-                receive = self.control_socket.recv(1024)
+                receive = bytearray(self.control_socket.recv(1024))
 
             except socket.timeout:
                 logging.info("Heartbeat: No response, Retry Counter %d/%d",
@@ -532,13 +538,16 @@ class KNXIPTunnel():
         # See KNX specification 3.8.4 chapter 2.6 "Frame confirmation"
         # Send KNX packet 2 times if not acknowledged and close
         # the connection if no ack is received
-        res = self.ack_semaphore.acquire(blocking=True, timeout=1)
+        try:
+            res = self.ack_queue.get(True, 1)
         # Resend package if not acknowledged after 1 seconds
-        if not res:
+        except queue.Empty:
             self.data_server.socket.sendto(
                 frame.to_frame(), (self.remote_ip, self.remote_port))
-
-            res = self.ack_semaphore.acquire(blocking=True, timeout=1)
+            try:
+                res = self.ack_queue.get(True, 1)
+            except queue.Empty:
+                res = False
 
         # disconnect and reconnect of not acknowledged
         if not res:
@@ -704,7 +713,7 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
 
         elif frame.service_type_id == KNXIPFrame.TUNNELLING_ACK:
             logging.debug("Received tunneling ACK")
-            self.server.tunnel.ack_semaphore.release()
+            self.server.tunnel.ack_queue.put(True)
         elif frame.service_type_id == KNXIPFrame.DISCONNECT_RESPONSE:
             logging.debug("Disconnected")
             self.channel = None
@@ -719,7 +728,7 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
                 "Message type %s not yet implemented", frame.service_type_id)
 
 
-class DataServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer):
+class DataServer(SocketServer.ThreadingMixIn, SocketServer.UDPServer, object):
     """Server that handled the UDP connection to the KNX/IP tunnel."""
 
     def __init__(self, server_address, RequestHandlerClass, tunnel):
