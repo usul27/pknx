@@ -675,7 +675,7 @@ class DataRequestHandler(SocketServer.BaseRequestHandler):
         data = self.request[0]
         sock = self.request[1]
 
-        frame = KNXIPFrame.from_frame(data)
+        frame = KNXIPFrame.from_frame(bytearray(data))
 
         if frame.service_type_id == KNXIPFrame.TUNNELING_REQUEST:
             req = KNXTunnelingRequest.from_body(frame.body)
