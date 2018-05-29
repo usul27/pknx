@@ -41,17 +41,16 @@ class TestKNXIPTunnel(unittest.TestCase):
         self.assertFalse(tunnel.connected)
         tunnel.group_read(1)
         self.assertTrue(tunnel.connected)
-        
-        
+
     def testKeepAlive(self):
         """Test if the background thread runs and updated the state"""
         tunnel = KNXIPTunnel(gwip)
         self.assertTrue(tunnel.connect())
         # Background thread should reset this to 0 if the connection is still
         # alive
-        tunnel.connection_state=1
+        tunnel.connection_state = 1
         time.sleep(66)
-        self.assertEqual(tunnel.connection_state,0)        
+        self.assertEqual(tunnel.connection_state, 0)        
 
     def testReadTimeout(self):
         """Test if read timeouts work and group_read operations
@@ -66,7 +65,7 @@ class TestKNXIPTunnel(unittest.TestCase):
         res = tunnel.group_read(37000, timeout=1)
         tock = datetime.now()
         diff = tock - tick    # the result is a datetime.timedelta object
-        self.assertTrue(diff.total_seconds() >= 1 and diff.total_seconds() < 3)
+        self.assertTrue(diff.total_seconds() >= 1 and diff.total_seconds() < 3.01)
         self.assertIsNone(res)
 
         # Read from some random address and hope nothing responds here
@@ -74,7 +73,7 @@ class TestKNXIPTunnel(unittest.TestCase):
         res = tunnel.group_read(37000, timeout=5)
         tock = datetime.now()
         diff = tock - tick    # the result is a datetime.timedelta object
-        self.assertTrue(diff.total_seconds() >= 5 and diff.total_seconds() < 6)
+        self.assertTrue(diff.total_seconds() >= 5 and diff.total_seconds() < 7.01)
         self.assertIsNone(res)
 
         tunnel.disconnect()

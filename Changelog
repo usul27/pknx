@@ -1,3 +1,11 @@
+0.6:
+ - B/C imports of acyncio, queue and socketserver
+ - Use Queue to detect ack timeout
+ - Convert reveived bytes to bytearray
+ - Inherit DataServer from object to make super call work
+ - Comment KNXIPTunnel.conn_state_ack_semaphore, it's never used
+ - Adjust timeouts in tests
+
 0.5:
  - serialised all KNX requests to make sure the class is thread-safe
  - added delay between write requests to make sure they are sent to the bus correctly

@@ -14,7 +14,10 @@ TODO:
 David Baumann(daBONDi@users.noreply.github.com)
 """
 
-import asyncio
+try:
+    import asyncio
+except ImportError:
+    import trollius as asyncio
 import logging
 import struct
 
@@ -228,7 +231,7 @@ class GatewayScanner:
             req = []
             req.extend([0x06])  # HeaderSize
             req.extend([0x10])  # KNXNetIP Version
-            req.extend([0x02, 0x01])  # Search Reques°t
+            req.extend([0x02, 0x01])  # Search Request
             req.extend([0x00, 0x0E])  # HEADER_SIZE_10 + sizeof(HPAI)
             # ==== Discovery Endpoint HPAI ====
             req.extend([0x08])  # Struct Length

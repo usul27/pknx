@@ -6,7 +6,7 @@ Created on Jul 8, 2016
 import unittest
 from knxip.conversion import float_to_knx2, knx2_to_float, \
     knx_to_time, time_to_knx, knx_to_date, date_to_knx, datetime_to_knx,\
-    knx_to_datetime
+    knx_to_datetime, knx_to_group_address
 from datetime import time, date, datetime
 from knxip.core import KNXException
 
@@ -14,7 +14,7 @@ from knxip.core import KNXException
 class KNXConversionTest(unittest.TestCase):
 
     def test_float_to_knx(self):
-        """Does the float to KNX conversion works correctly?"""
+        """Does the float to KNX conversion work correctly?"""
 
         # See
         # http://www.knx.org/fileadmin/template/documents/\
@@ -28,7 +28,7 @@ class KNXConversionTest(unittest.TestCase):
         self.assertEquals(float_to_knx2(1), [0x00, 0x64])
 
     def test_knx_to_float(self):
-        """Does the KNX to float conversion works correctly?"""
+        """Does the KNX to float conversion work correctly?"""
 
         # example pg. 21/36
         self.assertEquals(knx2_to_float([0x8a, 0x24]), -30)
@@ -98,6 +98,23 @@ class KNXConversionTest(unittest.TestCase):
 
         self.assertEqual(knx_to_datetime([116, 10, 30, 238, 55, 23, 32, 128]),
                          datetime(2016, 10, 30, 14, 55, 23))
+
+    def test_knx_to_group_address(self):
+        # maximum group address is '31/7/255"
+        # in case of an overflow the value will be zero and all values left from the value will corrupt
+
+        # compute '0/0/0'
+        self.assertEqual(knx_to_group_address(0), '0/0/0')
+
+        # compute '31/7/255'
+        self.assertEqual(knx_to_group_address(65535), '31/7/255')
+
+        # compute '16/4/1'
+        self.assertEqual(knx_to_group_address(33793), '16/4/1')
+
+        # compute '16/16/1', fails due to overflow, anyway, should never happen when used only with
+        # values received from knx bus
+        self.assertEqual(knx_to_group_address(36865), '18/0/1')
 
 
 if __name__ == "__main__":
