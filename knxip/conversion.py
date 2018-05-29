@@ -148,3 +148,8 @@ def knx_to_datetime(knxdata):
 
     return datetime(year, month, day, hour, minute, second)
 
+
+def knx_to_group_address(ga):
+    if not isinstance(ga, int):
+        ga = struct.unpack('>H', ga)[0]
+    return '{}/{}/{}'.format((ga >> 11) & 0x1f, (ga >> 8) & 0x07, (ga) & 0xff)
