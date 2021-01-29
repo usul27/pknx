@@ -405,6 +405,20 @@ class KNXIPTunnel():
         else:
             logging.debug("Disconnect - no connection, nothing to do")
 
+        # Cleanup
+        if self.data_server is not None:
+            self.data_server.shutdown()
+            self.data_server = None
+
+        self.discovery_port = None
+        self.data_port = None
+
+        self.result_queue.queue.clear()
+        self.value_cache.clear()
+        self.ack_semaphore.release()
+        self.conn_state_ack_semaphore.release()
+        self.connection_state = 0
+        self.seq = 0
         self.channel = None
         self.connected = False
 
